@@ -6,6 +6,7 @@ const ini = require('@xan105/ini');
 const parentFind = require('find-up');
 const glob = require('fast-glob');
 const fs = require('fs');
+const ffs = require('@xan105/fs');
 const listDrive = require(path.join(appPath, 'util/listDrive.js'));
 const regedit = require('regodit');
 

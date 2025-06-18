@@ -18,6 +18,7 @@ const files = {
     'achieve.dat',
     'Achievements.ini',
     'stats.bin',
+    "SteamEmu/UserStats/achiev.ini"
   ],
   steamEmu: ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini'],
 };
@@ -209,7 +210,7 @@ module.exports.getFolders = async (userDir_file) => {
                   }
                 }
               } else if (
-                info.GameSettings.UserDataFolder === 'mydocs' &&
+                (info.GameSettings.UserDataFolder === 'mydocs' || info.GameSettings.UserDataFolder === 'MyDocuments') &&
                 info.GameSettings.AppId &&
                 info.GameSettings.UserName &&
                 info.GameSettings.UserName !== ''
@@ -265,7 +266,7 @@ module.exports.getFolders = async (userDir_file) => {
 
 module.exports.parse = async (filePath) => {
   try {
-    const filter = ['SteamAchievements', 'Steam64', 'Steam'];
+    const filter = ['SteamAchievements', 'Steam64', 'Steam', 'Achievements'];
 
     let local;
     let file = path.parse(filePath);
@@ -288,6 +289,19 @@ module.exports.parse = async (filePath) => {
         }
       }
       local = convert;
+    } else if (local.Achievements) {
+      //SKIDROW
+      for (let i in local.Achievements) {
+        if (Object.prototype.hasOwnProperty.call(local.Achievements, i)) {
+          let parts = local.Achievements[i].split("@");
+          if (parts[0] == "1") {
+            local[i] = {
+              Achieved: "1",
+              UnlockTime: +parts[7] || null,
+            };
+          }
+        }
+      }
     } else if (local.State && local.Time) {
       //3DM
       let convert = {};

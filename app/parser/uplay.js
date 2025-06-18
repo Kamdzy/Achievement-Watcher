@@ -8,6 +8,8 @@ const ffs = require('@xan105/fs');
 const regedit = require('regodit');
 const request = require('request-zero');
 const steamLanguages = require(path.join(__dirname, '../locale/steam.json'));
+const settingsJS = require(path.join(__dirname, '../settings.js'));
+const configJS = settingsJS.load();
 
 let debug;
 module.exports.initDebug = ({ isDev, userDataPath }) => {
@@ -268,7 +270,7 @@ async function generateSchemaFromLocalCache(appid, uplayPath) {
 }
 
 function getUplayDataFromSRV(appID, lang = null) {
-  const url = lang ? `https://api.xan105.com/uplay/ach/${appID}?lang=${lang}` : `https://api.xan105.com/uplay/ach/${appID}`;
+  const url = lang ? `${configJS.api.serverUrl}/uplay/ach/${appID}?lang=${lang}` : `${configJS.api.serverUrl}/uplay/ach/${appID}`;
 
   return new Promise((resolve, reject) => {
     request
@@ -289,7 +291,7 @@ function getUplayDataFromSRV(appID, lang = null) {
 }
 
 async function shareCache(schema) {
-  const url = 'https://api.xan105.com/uplay/share/';
+  const url = `${configJS.api.serverUrl}/uplay/share/`;
 
   try {
     let appid = schema.appid.replace('UPLAY', '');

@@ -1,12 +1,11 @@
+import * as fs from "@xan105/fs";
 import path from "path";
 import request from "request-zero";
 import SteamID from "steamid";
-import * as fs from "@xan105/fs";
 import { unescape } from "../../util/xml.js";
 
-import productInfoRequest, { findBinary } from "./steamClient.js";
-import getDataFromSteamDB from "./3rdparty/steamdb.info.js";
 import getHiddenDescriptionFromCacheOrRemote from "./3rdparty/achievementstats.com.js";
+import productInfoRequest, { findBinary } from "./steamClient.js";
 import getDataFromSteamStoreFallbackStoreAPI from "./steamStore.js";
 
 import { require } from "../../util/esm.js";
@@ -145,7 +144,7 @@ export async function getUserAchievement(appID, steamID){
   
   const url = `http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appID}&key=${apiKey.steam.web_api[1]}&steamid=${userSteamID.getSteamID64()}"`;
   
-  const { playerstats : res } = await request.getJson(url);
+  const { playerstats : res } = await request.getJson(url, { timeout: 60000 });
   
   if (res.success) 
   {
@@ -179,7 +178,7 @@ async function findInAppList(appID){
   {
     const url = "http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json";
     
-    list = { applist : { apps } } = await request.getJson(url,{timeout: 4000});
+    list = { applist : { apps } } = await request.getJson(url, { timeout: 60000 });
     
     list.sort((a, b) => b.appid - a.appid); //recent first
     fs.promises.writeFile(filepath,JSON.stringify(list, null, 2));
@@ -261,7 +260,7 @@ async function generateAchievementList(appID,lang = "english"){
   const filepath = path.join(folder.cache,"steam/schema",lang,`${appID}.json`);  
        
   let data = {
-    current : await request.getJson(url),
+    current : await request.getJson(url, { timeout: 60000 }),
     previous : null
   };
       

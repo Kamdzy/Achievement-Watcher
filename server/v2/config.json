@@ -1,6 +1,7 @@
 {
   "host": "localhost",
   "port": 80,
+  "domain": "https://api.xan105.com",
   "proxy": false,
   "cors": true,
   "rateLimit": {

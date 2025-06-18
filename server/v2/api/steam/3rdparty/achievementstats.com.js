@@ -1,6 +1,6 @@
+import * as fs from "@xan105/fs";
 import path from "path";
 import request from "request-zero";
-import * as fs from "@xan105/fs";
 
 import { require } from "../../../util/esm.js";
 const { folder } = require("./config.json");
@@ -32,7 +32,7 @@ export default async function getHiddenDescriptionFromCacheOrRemote(appID){
       
       const url = `https://api.achievementstats.com/games/${appID}/achievements/?key=${apiKey}`;
 
-      const data = await request.getJson(url); //when busy return string. json parse failure
+      const data = await request.getJson(url, { timeout: 60000 }); //when busy return string. json parse failure
       
       if (!data) throw "EUNEXPECTEDNODATA";
        

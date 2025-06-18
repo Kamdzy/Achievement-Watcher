@@ -1,5 +1,5 @@
-import request from "request-zero";
 import htmlParser from "node-html-parser";
+import request from "request-zero";
 
 export async function getDataFromSteamStore(appID){
 
@@ -34,7 +34,7 @@ export async function getDataFromSteamStoreAPI(appID){
   
   const url = `https://store.steampowered.com/api/appdetails?appids=${appID}`;
     
-  const res = await request.getJson(url,{headers: {"Accept-Language" : "en-US;q=1.0"}});
+  const res = await request.getJson(url,{headers: {"Accept-Language" : "en-US;q=1.0"}, timeout: 60000 });
 
   if(res[appID].success) 
   {

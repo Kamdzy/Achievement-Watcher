@@ -18,6 +18,8 @@ const steamLanguages = require(path.join(appPath, 'locale/steam.json'));
 const sse = require(path.join(appPath, 'parser/sse.js'));
 const htmlParser = require('node-html-parser');
 const fs = require('fs');
+const settingsJS = require(path.join(__dirname, '../settings.js'));
+const configJS = settingsJS.load();
 const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
@@ -206,9 +208,10 @@ module.exports.getAchievementsFromFile = async (filePath) => {
       'stats/achievements.ini',
       'stats.bin',
       'stats/CreamAPI.Achievements.cfg',
+      "SteamEmu/UserStats/achiev.ini"
     ];
 
-    const filter = ['SteamAchievements', 'Steam64', 'Steam'];
+    const filter = ['SteamAchievements', 'Steam64', 'Steam', 'Achievements'];
 
     let local;
     for (let file of files) {
@@ -234,6 +237,20 @@ module.exports.getAchievementsFromFile = async (filePath) => {
         if (Object.prototype.hasOwnProperty.call(local.Achievements, i)) {
           if (local.Achievements[i] == 1) {
             result[`${i}`] = { Achieved: '1', UnlockTime: local.AchievementsUnlockTimes[i] || null };
+          }
+        }
+      }
+    }  else if (local.Achievements) {
+      //SKIDROW
+
+      for (let i in local.Achievements) {
+        if (Object.prototype.hasOwnProperty.call(local.Achievements, i)) {
+          let parts = local.Achievements[i].split("@");
+          if (parts[0] == "1") {
+            result[i] = {
+              Achieved: "1",
+              UnlockTime: +parts[7] || null,
+            };
           }
         }
       }
@@ -392,7 +409,7 @@ const getSteamUsersList = (module.exports.getSteamUsersList = async () => {
 });
 
 function getSteamUserStatsFromSRV(user, appID) {
-  const url = `https://api.xan105.com/steam/user/${user}/stats/${appID}`;
+  const url = `${configJS.api.serverUrl}/steam/user/${user}/stats/${appID}`;
 
   return new Promise((resolve, reject) => {
     request
@@ -424,7 +441,7 @@ async function getSteamUserStats(cfg) {
 }
 
 function getSteamDataFromSRV(appID, lang) {
-  const url = `https://api.xan105.com/steam/ach/${appID}?lang=${lang}`;
+  const url = `${configJS.api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
 
   return new Promise((resolve, reject) => {
     request

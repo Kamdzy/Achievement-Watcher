@@ -272,6 +272,14 @@ module.exports.load = () => {
     } else {
       options.steam = {};
     }
+
+    // API Server URL
+    if (options.api) {
+      if (typeof options.api.serverUrl !== 'string') {
+        options.api.serverUrl = 'https://api.xan105.com';
+      }
+    }
+    
   } catch (err) {
     console.log(`failed to load settings: ${err}`);
     options = {
@@ -346,6 +354,9 @@ module.exports.load = () => {
         hide: true,
       },
       steam: { main: '0' },
+      api: {
+        serverUrl: 'https://api.xan105.com'
+      }
     };
 
     try {

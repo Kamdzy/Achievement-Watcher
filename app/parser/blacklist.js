@@ -3,6 +3,8 @@
 const path = require('path');
 const request = require('request-zero');
 const ffs = require('@xan105/fs');
+const settingsJS = require(path.join(__dirname, '../settings.js'));
+const configJS = settingsJS.load();
 
 let debug;
 let exclusionFile;
@@ -15,7 +17,7 @@ module.exports.initDebug = ({ isDev, userDataPath }) => {
 };
 
 module.exports.get = async () => {
-  const url = 'https://api.xan105.com/steam/getBogusList';
+  const url = `${configJS.api.serverUrl}/steam/getBogusList`;
   //TODO: replace this url with the full apilist of dlc/music/demo/etc
 
   let exclude = [

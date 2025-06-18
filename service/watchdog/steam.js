@@ -6,6 +6,8 @@ const fs = require('@xan105/fs');
 const request = require('request-zero');
 const steamLang = require('./steam.json');
 const htmlParser = require('node-html-parser');
+const settingsJS = require('./settings.js');
+const cfg_file = path.join(process.env['APPDATA'], 'Achievement Watcher/cfg', 'options.ini');
 
 module.exports.loadSteamData = async (appID, lang, key, binary = null) => {
   if (!steamLang.some((language) => language.api === lang)) {
@@ -57,7 +59,8 @@ module.exports.fetchIcon = async (url, appID) => {
 };
 
 function getSteamDataFromSRV(appID, lang) {
-  const url = `https://api.xan105.com/steam/ach/${appID}?lang=${lang}`;
+  const options = settingsJS.load(cfg_file);
+  const url = `${options.api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
 
   return new Promise((resolve, reject) => {
     request

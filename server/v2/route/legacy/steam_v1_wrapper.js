@@ -1,7 +1,9 @@
 import express from "express";
 import sanitize from "express-validator";
-import { getSchema } from "../../api/steam/steam.js"; 
+import { readFileSync } from "fs";
+import { getSchema } from "../../api/steam/steam.js";
 import * as response from "../../util/reqResponse.js";
+const config = JSON.parse(readFileSync(new URL("../../config.json", import.meta.url)));
 
 const router = express.Router();
 
@@ -65,7 +67,7 @@ try {
  }	
 })
 .get("/user/:user/stats/:appid", (req, res) => { 
-	res.redirect("https://api.xan105.com/v2/steam/achievement/"+ req.params.user +"/" + req.params.appid) //(Use full url: redirect bug AW all version; cf:request-zero <= 0.2.9)
+	res.redirect(`${config.domain}/v2/steam/achievement/`+ req.params.user +"/" + req.params.appid) //(Use full url: redirect bug AW all version; cf:request-zero <= 0.2.9)
 })
 .get("/getBogusList", (req, res) => { 
 	response.failure(res,{code: 410, msg: "Gone"});

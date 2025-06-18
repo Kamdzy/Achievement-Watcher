@@ -462,7 +462,7 @@ var app = {
                 icon: nativeImage.createFromPath(path.join(appPath, 'resources/img/globe.png')),
                 label: 'API (Achievement schema)',
                 click() {
-                  remote.shell.openExternal(`https://api.xan105.com/steam/ach/${appid}?lang=${app.config.achievement.lang}`);
+                  remote.shell.openExternal(`${app.config.api.serverUrl}/steam/ach/${appid}?lang=${app.config.achievement.lang}`);
                 },
               })
             );
@@ -471,7 +471,7 @@ var app = {
                 icon: nativeImage.createFromPath(path.join(appPath, 'resources/img/globe.png')),
                 label: 'API (App info)',
                 click() {
-                  remote.shell.openExternal(`https://api.xan105.com/v2/steam/appinfo/${appid}`);
+                  remote.shell.openExternal(`${app.config.api.serverUrl}/v2/steam/appinfo/${appid}`);
                 },
               })
             );

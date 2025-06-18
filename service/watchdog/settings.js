@@ -279,6 +279,14 @@ module.exports.load = async (cfg_file) => {
       options.steam = {};
     }
 
+    // API Server URL
+    if (options.api) {
+      if (typeof options.api.serverUrl !== 'string') {
+        options.api.serverUrl = 'https://api.xan105.com';
+        fixFile = true;
+      }
+    }
+
     if (fixFile) await fs.writeFile(cfg_file, ini.stringify(options), 'utf8').catch(() => {});
 
     if (steamKey) options.steam.apiKey = steamKey;
@@ -344,6 +352,9 @@ module.exports.load = async (cfg_file) => {
         hide: true,
       },
       steam: {},
+      api: {
+        serverUrl: 'https://api.xan105.com'
+      }
     };
 
     try {

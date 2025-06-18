@@ -224,7 +224,9 @@ async function getGameIndex() {
       gameIndex = JSON.parse(await fs.readFile(filePath.cache, 'utf8'));
     } else {
       try {
-        gameIndex = (await request.getJson('https://api.xan105.com/v2/steam/gameindex')).data;
+        const settings = require('../settings.js');
+        const options = await settings.load(path.join(appdataPath, 'Achievement Watcher/cfg', 'options.ini'));
+        gameIndex = (await request.getJson(`${options.api.serverUrl}/v2/steam/gameindex`)).data;
         debug.log('[Playtime] gameIndex updated');
         await fs.writeFile(filePath.cache, JSON.stringify(gameIndex), 'utf8').catch((err) => {
           debug.error(err);
