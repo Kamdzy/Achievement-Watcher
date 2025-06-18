@@ -38,6 +38,9 @@ jobs:
       - name: Setup MSBuild (needed for node-gyp native modules)
         uses: microsoft/setup-msbuild@v1.1
 
+      - name: Set npm to use MSVC 2022
+        run: npm config set msvs_version 2022
+
       - name: Install dependencies with fallback
         working-directory: app
         run: |
