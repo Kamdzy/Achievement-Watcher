@@ -3,7 +3,7 @@ name: Build Windows Installer
 on:
   push:
     tags:
-      - 'v*' # Triggers on version tags like v1.0.0
+      - "v*" # Triggers on version tags like v1.0.0
   workflow_dispatch: # Allows manual triggering
 
 jobs:
@@ -37,9 +37,10 @@ jobs:
 
       - name: Setup MSBuild (needed for node-gyp native modules)
         uses: microsoft/setup-msbuild@v1.1
-        
+
       - name: Install required Visual Studio components
         run: choco install visualstudio2022-workload-vctools --package-parameters "--includeRecommended --includeOptional" -y
+        continue-on-error: true # Continue even if the package asks for a reboot
 
       - name: Set npm to use MSVC 2022
         run: npm config set msvs_version 2022
