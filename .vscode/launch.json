@@ -1,0 +1,61 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Achievement Watcher: Debug Main Process",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/app/node_modules/.bin/electron",
+            "cwd": "${workspaceFolder}/app",
+            "console": "integratedTerminal",
+            "args": [
+                ".",
+                "--remote-debugging-port=9225"
+            ],
+            "windows": {
+                "runtimeExecutable": "${workspaceFolder}/app/node_modules/.bin/electron.cmd"
+            }
+        },
+        {
+            "name": "Achievement Watcher: Debug Renderer Process",
+            "type": "chrome",
+            "request": "attach",
+            "port": 9225,
+            "webRoot": "${workspaceFolder}/app",
+            "timeout": 1000000
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Watchdog",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "start"
+            ],
+            "cwd": "${workspaceFolder}/service/watchdog",
+            "port": 9230
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "API Server",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "start"
+            ],
+            "cwd": "${workspaceFolder}/server/v2",
+            "port": 9231
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Achievement Watcher: Full Debug",
+            "configurations": [
+                "Achievement Watcher: Debug Renderer Process",
+                "Achievement Watcher: Debug Main Process"
+            ]
+        }
+    ]
+}
