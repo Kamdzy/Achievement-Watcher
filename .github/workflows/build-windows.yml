@@ -38,7 +38,7 @@ jobs:
       - name: Setup MSBuild (needed for node-gyp native modules)
         uses: microsoft/setup-msbuild@v1.1
         with:
-          vs-version: '2017'
+          vs-version: '2022'
       
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -46,7 +46,7 @@ jobs:
           python-version: '3.10'
 
       - name: Set msvs_version
-        run: npm config set msvs_version 2017
+        run: npm config set msvs_version 2022
         working-directory: app
 
       - name: Ensure patch-package is installed
