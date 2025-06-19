@@ -44,7 +44,7 @@ jobs:
           for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
             call "%%i\VC\Auxiliary\Build\vcvars64.bat"
             npm config set msvs_version 2022
-            npm ci || npm install --verbose
+            call "npm install.cmd"
           )
 
       - name: Build (no publish)
