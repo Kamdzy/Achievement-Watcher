@@ -41,11 +41,9 @@ jobs:
       - name: Install dependencies and build
         shell: cmd
         run: |
-          for /f "tokens=*" %%i in ('"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products Microsoft.VisualStudio.Product.Community -requires Microsoft.Component.MSBuild -property installationPath') do (
-            call "%%i\VC\Auxiliary\Build\vcvars64.bat"
-            npm config set msvs_version 2022
-            call "npm install.cmd"
-          )
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          npm config set msvs_version 2022
+          call "npm install.cmd"
 
       - name: Build (no publish)
         run: npx electron-builder --config ../electron-builder.yml --windows --publish never
