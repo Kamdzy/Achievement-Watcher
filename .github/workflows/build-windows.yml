@@ -45,9 +45,14 @@ jobs:
           npm config set msvs_version 2022
           call "npm install.cmd"
 
-      - name: Build (no publish)
-        run: npx electron-builder --config ../electron-builder.yml --windows --publish never
-        working-directory: app
+      # - name: Build (no publish)
+      #   run: npx electron-builder --config electron-builder.yml --windows --publish never
+      #   working-directory: app
+
+      - name: Build everything
+        shell: cmd
+        working-directory: ${{ github.workspace }}
+        run: call "buildme.cmd"
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
