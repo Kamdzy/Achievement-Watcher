@@ -38,16 +38,11 @@ jobs:
       - name: Setup MSBuild (needed for node-gyp native modules)
         uses: microsoft/setup-msbuild@v1.1
 
-      - name: Install required Visual Studio components
-        run: choco install visualstudio2022-workload-vctools --package-parameters "--includeRecommended --includeOptional" -y
-        continue-on-error: true # Continue even if the package asks for a reboot
-
-      - name: Set npm to use MSVC 2022
-        run: npm config set msvs_version 2022
-
-      - name: Install dependencies with fallback
-        working-directory: app
+      - name: Install dependencies and build
+        shell: cmd
         run: |
+          call "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          npm config set msvs_version 2022
           npm ci || npm install --verbose
 
       - name: Build (no publish)
