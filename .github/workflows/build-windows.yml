@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies and build
         shell: cmd
         run: |
-          call "%ProgramFiles%\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           npm config set msvs_version 2022
           call "npm install.cmd"
 
