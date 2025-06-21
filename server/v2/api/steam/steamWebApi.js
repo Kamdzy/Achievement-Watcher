@@ -30,6 +30,9 @@ async function updateGameServerIndex(gameInfo){
   const lastEntryCount = 16193;
   
   const filepath = path.join(folder.cache,"steam/schema/gameIndex.json");
+  if (!(await fs.exists(filepath))) {
+    await fs.writeFile(filepath, "[]");
+  }
   const file = await fs.readFile(filepath);
   const db = JSON.parse(file);
   const size = db.length;
@@ -148,12 +151,12 @@ export async function getUserAchievement(appID, steamID){
   
   if (res.success) 
   {
-	return res.achievements;
+  return res.achievements;
   }
   else 
   {
-	if(res.error === "Requested app has no stats") throw "ENOSTATS" 
-	else throw res.error
+  if(res.error === "Requested app has no stats") throw "ENOSTATS" 
+  else throw res.error
   }
  
 }
@@ -177,11 +180,12 @@ async function findInAppList(appID){
   catch
   {
     const url = "http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json";
-    
-    list = { applist : { apps } } = await request.getJson(url, { timeout: 60000 });
-    
+    const response = await request.getJson(url, { timeout: 60000 });
+    const apps = response.applist.apps;
+    list = apps;
+
     list.sort((a, b) => b.appid - a.appid); //recent first
-    fs.promises.writeFile(filepath,JSON.stringify(list, null, 2));
+    await fs.writeFile(filepath, JSON.stringify(list, null, 2));
     
     app = list.find(app => app.appid === appID);
     if (!app) throw "ENOTFOUND"; 
