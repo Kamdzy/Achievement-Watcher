@@ -67,7 +67,7 @@
       "view": "./view/app.html"
     },
     "update": {
-      "github": "darktakayanagi/Achievement-Watcher",
+      "github": "kamdzy/Achievement-Watcher",
       "name": "Achievement.Watcher.Setup.exe"
     },
     "appid": "io.github.xan105.achievement.watcher"
