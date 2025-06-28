@@ -440,31 +440,26 @@ async function getSteamUserStats(cfg) {
   }
 }
 
-function getSteamDataFromSRV(appID, lang) {
-  const url = `${configJS.api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
+async function getSteamDataFromSRV(appID, lang) {
+  const { ipcRenderer } = require('electron');
+  const result = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'data' });
+  const icon = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'icon' });
 
-  return new Promise((resolve, reject) => {
-    request
-      .getJson(url)
-      .then((data) => {
-        if (data.error) {
-          return reject(data.error);
-        } else if (data.data) {
-          return resolve(data.data);
-        } else {
-          return reject('Unexpected Error');
-        }
-      })
-      .catch((err) => {
-        return reject(err);
-      });
-  });
-
-  //TODO: replace the previous code with this(properly formatted):
-  //await client.getProductInfo([appID], [], false, async (err, data) => {
-  //  const appInfo = data[appID].appinfo;
-  //  return appInfo;
-  //});
+  return {
+    name: result.name,
+    appid: appID,
+    binary: null,
+    img: {
+      header: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/header.jpg`,
+      background: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/page_bg_generated_v6b.jpg`,
+      portrait: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/library_600x900.jpg`,
+      icon,
+    },
+    achievement: {
+      total: result.achievements.length,
+      list: result.achievements,
+    },
+  };
 }
 
 async function getMissingAchData(cfg, achievements) {
