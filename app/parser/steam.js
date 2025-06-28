@@ -449,7 +449,7 @@ function getSteamDataFromRemoteSRV(appID, lang) {
 
   return new Promise((resolve, reject) => {
     request
-      .getJson(url)
+      .getJson(url, { timeout: 6000 })
       .then((data) => {
         if (data.error) {
           return reject(data.error);
