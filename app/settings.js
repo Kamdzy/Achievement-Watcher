@@ -275,6 +275,10 @@ module.exports.load = () => {
 
     // API Server URL
     if (options.api) {
+      if (typeof options.api.useRemoteServer !== 'boolean') {
+        options.api.useRemoteServer = false;
+      }
+
       if (typeof options.api.serverUrl !== 'string') {
         options.api.serverUrl = 'https://api.xan105.com';
       }
@@ -355,6 +359,7 @@ module.exports.load = () => {
       },
       steam: { main: '0' },
       api: {
+        useRemoteServer: false,
         serverUrl: 'https://api.xan105.com'
       }
     };

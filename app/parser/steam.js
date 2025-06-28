@@ -178,7 +178,11 @@ module.exports.getGameData = async (cfg) => {
       if (cfg.key) {
         result = await getSteamData(cfg);
       } else {
-        result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+        if(configJS.api.useRemoteServer) {
+          result = await getSteamDataFromRemoteSRV(cfg.appID, cfg.lang);
+        } else {
+          result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+        }
       }
       ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
     }
@@ -438,6 +442,33 @@ async function getSteamUserStats(cfg) {
   } catch (err) {
     throw err;
   }
+}
+
+function getSteamDataFromRemoteSRV(appID, lang) {
+  const url = `${configJS.api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
+
+  return new Promise((resolve, reject) => {
+    request
+      .getJson(url)
+      .then((data) => {
+        if (data.error) {
+          return reject(data.error);
+        } else if (data.data) {
+          return resolve(data.data);
+        } else {
+          return reject('Unexpected Error');
+        }
+      })
+      .catch((err) => {
+        return reject(err);
+      });
+  });
+
+  //TODO: replace the previous code with this(properly formatted):
+  //await client.getProductInfo([appID], [], false, async (err, data) => {
+  //  const appInfo = data[appID].appinfo;
+  //  return appInfo;
+  //});
 }
 
 async function getSteamDataFromSRV(appID, lang) {

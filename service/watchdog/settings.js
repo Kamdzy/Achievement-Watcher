@@ -281,6 +281,10 @@ module.exports.load = async (cfg_file) => {
 
     // API Server URL
     if (options.api) {
+      if (typeof options.api.useRemoteServer !== 'boolean') {
+        options.api.useRemoteServer = false;
+      }
+
       if (typeof options.api.serverUrl !== 'string') {
         options.api.serverUrl = 'https://api.xan105.com';
         fixFile = true;
@@ -353,6 +357,7 @@ module.exports.load = async (cfg_file) => {
       },
       steam: {},
       api: {
+        useRemoteServer: false,
         serverUrl: 'https://api.xan105.com'
       }
     };
