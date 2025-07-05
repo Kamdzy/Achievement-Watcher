@@ -4,6 +4,7 @@ const path = require('path');
 const { app } = require('electron');
 app.setName('Achievement Watcher');
 app.setPath('userData', path.join(app.getPath('appData'), app.getName()));
+const puppeteer = require('puppeteer');
 const { BrowserWindow, dialog, session, shell, ipcMain, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const remote = require('@electron/remote/main');
@@ -15,6 +16,10 @@ const ipc = require(path.join(__dirname, 'ipc.js'));
 const player = require('sound-play');
 const { fetchIcon } = require(path.join(__dirname, '../parser/steam.js'));
 const { pathToFileURL } = require('url');
+const fetch = require('node-fetch');
+const BASE_URL = 'https://www.steamgriddb.com/api/v2';
+const API_KEY = '2a9d32ddd0bfe4e1191b4f6ff56fef60'; // TODO: remove this and load from config file
+const sharp = require('sharp');
 const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
@@ -28,6 +33,7 @@ const userData = app.getPath('userData');
 if (manifest.config['disable-gpu']) app.disableHardwareAcceleration();
 if (manifest.config.appid) app.setAppUserModelId(manifest.config.appid);
 
+let steamDBWindow = null;
 let MainWin = null;
 let progressWindow = null;
 let overlayWindow = null;
@@ -84,6 +90,7 @@ ipcMain.on('get-steam-appid-from-title', async (event, arg) => {
 
   let info = { name: arg.title };
   searchForSteamAppId(info);
+  let possibleMatch;
   while (true) {
     if (info.games) {
       for (let game of info.games) {
@@ -91,12 +98,95 @@ ipcMain.on('get-steam-appid-from-title', async (event, arg) => {
           event.returnValue = game.appid;
           return;
         }
+        if (!possibleMatch && normalizeTitle(game.title).includes(normalizeTitle(arg.title))) {
+          possibleMatch = game.appid;
+        }
       }
       break;
     }
     await delay(500);
   }
-  event.returnValue = undefined;
+  event.returnValue = possibleMatch;
+});
+
+ipcMain.on('get-title-from-epic-id', async (event, arg) => {
+  let info = { appid: arg.appid };
+  await searchForGameName(info);
+  while (true) {
+    if (info.title) {
+      event.returnValue = info.title;
+      return;
+    }
+    await delay(500);
+  }
+});
+
+ipcMain.on('get-images-for-game', async (event, arg) => {
+  const gameName = arg.name;
+  try {
+    const searchRes = await fetch(`${BASE_URL}/search/autocomplete/${encodeURIComponent(gameName)}`, {
+      headers: { Authorization: `Bearer ${API_KEY}` },
+    });
+
+    const searchData = await searchRes.json();
+    const game = searchData.data[0];
+    if (!game) {
+      console.log('Game not found');
+      return;
+    }
+
+    const gameId = game.id;
+
+    const [iconsRes, gridsRes, heroesRes] = await Promise.all([
+      fetch(`${BASE_URL}/icons/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
+      fetch(`${BASE_URL}/grids/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
+      fetch(`${BASE_URL}/heroes/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
+    ]);
+
+    const [icons, grids, heroes] = await Promise.all([iconsRes.json(), gridsRes.json(), heroesRes.json()]);
+
+    const portrait = grids.data.find((g) => g.width === 600 && g.height === 900);
+    const landscape = grids.data.find((g) => g.width === 920 && g.height === 430);
+    const links = { icon: icons.data?.[0]?.url, background: heroes.data?.[0]?.url, portrait: portrait?.url, landscape: landscape?.url };
+    event.returnValue = links;
+  } catch (err) {
+    console.error('❌ Error:', err.message);
+  }
+});
+
+ipcMain.on('stylize-background-for-appid', async (event, arg) => {
+  const imageUrl = arg.background;
+  const t = path.parse(imageUrl).base;
+  const outputPath = path.join(app.getPath('userData'), 'steam_cache', 'icon', arg.appid, t);
+
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${res.statusText}`);
+    const buffer = await res.buffer();
+
+    const metadata = await sharp(buffer).metadata();
+    const { width, height } = metadata;
+
+    const processedBuffer = await sharp(buffer)
+      .blur(5)
+      .modulate({ saturarion: 0.5 })
+      .composite([
+        {
+          input: Buffer.from(
+            `<svg width="${width}" height="${height}">
+              <rect width="100%" height="100%" fill="#3b65a7" fill-opacity="0.8"/>
+              <rect width="100%" height="100%" fill="#000000" fill-opacity="0.4"/>
+             </svg>`
+          ),
+          blend: 'over',
+        },
+      ])
+      .toBuffer();
+
+    fs.writeFileSync(outputPath, processedBuffer);
+  } catch (err) {
+    console.error('❌ Error:', err.message);
+  }
 });
 
 ipcMain.on('fetch-source-img', async (event, arg) => {
@@ -153,19 +243,27 @@ function delay(ms) {
  * @param {{appid: string}} info
  */
 function openSteamDB(info = { appid: 269770 }) {
-  const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-  win.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
-  // Inject JS *before* the page starts executing its own scripts
-  win.webContents.on('dom-ready', async () => {
-    await win.webContents.executeJavaScript(`
+  if (steamDBWindow) {
+    if (steamDBWindow.isMinimized()) steamDBWindow.restore();
+    steamDBWindow.focus();
+  } else {
+    steamDBWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        partition: 'persist:cloudflare', // 💡 persist session across loads
+      },
+    });
+
+    steamDBWindow.webContents.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
+    );
+    // Inject JS *before* the page starts executing its own scripts
+    steamDBWindow.webContents.on('dom-ready', async () => {
+      await steamDBWindow.webContents.executeJavaScript(`
       // Override navigator.userAgent
       Object.defineProperty(navigator, 'userAgent', {
         get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
@@ -184,20 +282,21 @@ function openSteamDB(info = { appid: 269770 }) {
       // Fake Chrome object
       window.chrome = { runtime: {} };
     `);
-  });
-  win.loadURL(`https://steamdb.info/app/${info.appid}/stats/`);
-  win.webContents.on('did-finish-load', async () => {
+    });
+  }
+  steamDBWindow.loadURL(`https://steamdb.info/app/${info.appid}/stats/`);
+  steamDBWindow.webContents.on('did-finish-load', async () => {
     let achievements = undefined;
     let name = undefined;
     try {
       while (!achievements || achievements.length === 0) {
-        name = await win.webContents.executeJavaScript(`
+        name = await steamDBWindow.webContents.executeJavaScript(`
           (() => {
             const el = document.querySelector('.achievements_game_name');
             return el?.innerText.trim() || null;
           })()
         `);
-        achievements = await win.webContents.executeJavaScript(`
+        achievements = await steamDBWindow.webContents.executeJavaScript(`
           (() => {
             const items = document.querySelectorAll('.achievements_list .achievement');
             const data = [];
@@ -230,6 +329,66 @@ function openSteamDB(info = { appid: 269770 }) {
       console.error('Failed to extract achievements:', error);
     }
   });
+}
+
+async function searchForGameName(info = { appid: '' }) {
+  if (info.appid.length === 0) {
+    info.title = undefined;
+    return;
+  }
+
+  let locale = 'en-US'; // use AW's languague in the future? does it even make a difference in this context?
+  let startIndex = 0;
+  let matchResult;
+
+  async function scrapePage(startIndex) {
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+
+    const url = `https://store.epicgames.com/pt/browse?sortBy=releaseDate&sortDir=DESC&tag=Windows&priceTier=tier3&category=Game&count=40&start=${startIndex}`;
+
+    try {
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
+      await page.setUserAgent(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+      );
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+      await page.waitForFunction(() => !!window.__REACT_QUERY_INITIAL_QUERIES__, { timeout: 15000 });
+      const queries = await page.evaluate(() => window.__REACT_QUERY_INITIAL_QUERIES__);
+      if (queries.queries) {
+        const catalogQuery = queries.queries.find((q) => q?.state?.data?.Catalog?.searchStore?.elements);
+        if (catalogQuery) {
+          const elements = catalogQuery.state.data.Catalog.searchStore.elements;
+          const found = elements.find((el) => el.namespace === info.appid);
+          if (found) {
+            matchResult = found.title;
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`❌ Error on page ${startIndex}:`, err.message);
+    } finally {
+      await page.close();
+      await browser.close();
+    }
+    return matchResult;
+  }
+
+  async function run() {
+    const tasks = [];
+    for (let i = 0; i < 5; i++) {
+      const startIndex = i;
+      tasks.push(scrapePage(startIndex));
+    }
+
+    await Promise.all(tasks);
+  }
+  await run();
+  info.title = matchResult;
+  return;
 }
 
 function searchForSteamAppId(info = { name: '' }) {
@@ -804,6 +963,7 @@ async function createProgressWindow(info) {
     show: false,
     webPreferences: {
       preload: path.join(__dirname, '../overlayPreload.js'),
+      additionalArguments: [`--isDev=${app.isDev ? 'true' : 'false'}`, `--userDataPath=${userData}`],
       contextIsolation: true,
       nodeIntegration: false,
     },

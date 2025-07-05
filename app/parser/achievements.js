@@ -309,8 +309,8 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
             game = await rpcs3.getGameData(appid.data.path);
           } else if (appid.data.type === 'uplay' || appid.data.type === 'lumaplay') {
             game = await uplay.getGameData(appid.appid, option.achievement.lang);
-          } else if (appid.source === 'epic' && epic.isExclusive(appid.appid)) {
-            game = await epic.getGameData({ appID: appid.appid, lang: option.achievement.lang });
+          } else if (appid.source === 'epic') {
+            game = await epic.getGameData({ appID: appid.appid, steamappid: appid.steamappid, lang: option.achievement.lang });
           } else {
             game = await steam.getGameData({
               appID: appid.appid,
@@ -318,6 +318,7 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
               key: option.steam.apiKey,
             });
           }
+          if (appid.steamappid) game.steamappid = appid.steamappid;
           game.source = appid.source;
           if (!option.achievement.mergeDuplicate && appid.source) game.source = appid.source;
 
@@ -357,7 +358,7 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
                   if (root[i].crc) {
                     return root[i].crc.includes(crc32(elem.name).toString(16)); //(SSE) crc module removes leading 0 when dealing with anything below 0x1000 -.-'
                   } else {
-                    let apiname = root[i].id || root[i].apiname || root[i].name || i;
+                    let apiname = root[i].id || root[i].apiname || root[i].name || root[i].AchievementId || i;
                     return elem.name == apiname || elem.name.toString().toUpperCase() == apiname.toString().toUpperCase(); //uppercase == uppercase : cdx xcom chimera (apiname doesn't match case with steam schema)
                   }
                 });
@@ -383,11 +384,17 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
                     root[i].HaveHaveAchievedTime ||
                     root[i].Time ||
                     root[i].earned_time ||
+                    root[i].unlock_time ||
                     0,
                 };
 
-                if (!parsed.Achieved && parsed.MaxProgress != 0 && parsed.CurProgress != 0 && parsed.MaxProgress == parsed.CurProgress) {
+                if (
+                  (!parsed.Achieved && parsed.MaxProgress != 0 && parsed.CurProgress != 0 && parsed.MaxProgress == parsed.CurProgress) ||
+                  game.source === 'gog' ||
+                  game.source === 'epic'
+                ) {
                   //CODEX Gears5 (09/2019)  && Gears tactics (05/2020)
+                  //gog and epic only save unlocked achivements so if they are in the root it means they are unlocked
                   parsed.Achieved = true;
                 }
 

@@ -182,10 +182,10 @@ var app = {
                   <div class="info">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                       <div class="title">${list[game].name}</div>
-                      <img style="height: 1em; vertical-align: middle; line-height: 1;" src="${ipcRenderer.sendSync(
+                      <img style="height: 1em; vertical-align: middle; line-height: 1; flex-shrink:0;" src="${ipcRenderer.sendSync(
                         'fetch-source-img',
                         list[game].source
-                      )}"'>
+                      )}">
                     </div>
                     <div class="progressBar" data-percent="${progress}"><span class="meter" style="width:${progress}%"></span></div>
                     <!--${list[game].source ? `<div class="source">${list[game].source}</div>` : ''}-->
@@ -523,9 +523,13 @@ var app = {
       if (game.img.background) {
         if (game.system === 'uplay' || game.img?.overlay === true) {
           let gradient = `linear-gradient(to bottom right, rgba(0, 47, 75, .8), rgba(35, 54, 78, 0.9))`;
-          $('body').fadeIn().attr('style', `background: ${gradient}, url('${game.img.background}')`);
+          $('body')
+            .fadeIn()
+            .attr('style', `background: ${gradient}, url('${ipcRenderer.sendSync('fetch-icon', game.img.background, game.appid)}')`);
         } else {
-          $('body').fadeIn().css('background', `url('${game.img.background}')`);
+          $('body')
+            .fadeIn()
+            .css('background', `url('${ipcRenderer.sendSync('fetch-icon', game.img.background, game.appid)}')`);
         }
       } else {
         $('body').fadeIn().css('background', `url('../resources/img/ach_background.jpg')`);
@@ -631,7 +635,7 @@ var app = {
                                 }</div>
                                 <div class="description">${
                                   achievement.hidden == 1 && !app.config.achievement.showHidden && !achievement.Achieved
-                                    ? '...'
+                                    ? '[Hidden description (enable in the settings to show)]'
                                     : achievement.description || '...'
                                 }</div>
                                 <div class="progressBar" data-current="${achievement.CurProgress || '0'}" data-max="${
@@ -730,7 +734,10 @@ var app = {
         $('.achievement .stats .community').hide();
       } else {
         $('.achievement .stats .community').show();
-        getSteamGlobalStat(self.data('appid'));
+        getGlobalStat(
+          game.source === 'epic' && game.steamappid ? game.steamappid : self.data('appid'),
+          game.source === 'epic' ? (game.steamappid ? 'steam' : 'epic') : 'steam'
+        );
       }
 
       $('#achievement').fadeIn(600, function () {
