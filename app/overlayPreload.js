@@ -1,4 +1,12 @@
 const { contextBridge, ipcRenderer, webFrame } = require('electron');
+const args = process.argv.slice(1);
+const isDevArg = args.find((arg) => arg.startsWith('--isDev='));
+const userDataArg = args.find((arg) => arg.startsWith('--userDataPath='));
+
+const isDev = isDevArg ? isDevArg.split('=')[1] === 'true' : false;
+const userDataPath = userDataArg ? userDataArg.split('=')[1] : null;
+const achievementsJS = require('./parser/achievements');
+achievementsJS.initDebug({ isDev, userDataPath });
 
 contextBridge.exposeInMainWorld('customApi', {
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
@@ -50,6 +58,13 @@ contextBridge.exposeInMainWorld('api', {
   getSounds: () => ipcRenderer.invoke('get-sound-files'),
   getSoundFullPath: (fileName) => ipcRenderer.invoke('get-sound-path', fileName),
   onPlaySound: (callback) => ipcRenderer.on('play-sound', (event, sound) => callback(sound)),
+  onInitData: (callback) =>
+    ipcRenderer.on('init-achievement', async (event, info) => {
+      const ach = await achievementsJS.getAchievementsForAppid(info.option, info.appid);
+      ipcRenderer.send('achievement-data-ready');
+      callback({ info, ach });
+    }),
+  getAchievementsForAppid: (option, appid) => achievementsJS.getAchievementsForAppid(option, appid),
   onProgressUpdate: (callback) => ipcRenderer.on('show-progress', (event, data) => callback(data)),
   closeNotificationWindow: () => ipcRenderer.send('close-notification-window'),
   parseStatsBin: (filePath) => ipcRenderer.invoke('parse-stats-bin', filePath),
