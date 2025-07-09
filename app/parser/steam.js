@@ -193,7 +193,11 @@ module.exports.getGameData = async (cfg) => {
     if (cfg.key) {
       result = await getSteamData(cfg);
     } else {
-      result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+      if(configJS.api.useRemoteServer) {
+        result = await getSteamDataFromRemoteSRV(cfg.appID, cfg.lang);
+      } else {
+        result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+      }
     }
     ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
     return result;
