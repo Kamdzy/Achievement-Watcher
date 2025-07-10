@@ -240,6 +240,14 @@ ipcMain.on('progress-test', async (event, arg) => {
   await createProgressWindow({ appid: 400, ach: 'PORTAL_TRANSMISSION_RECEIVED', description: 'Testing progress', count: '50/100' });
 });
 
+ipcMain.on('achievement-data-ready', () => {
+  progressWindow.showInactive();
+});
+
+ipcMain.handle('get-achievements', async (event, appid) => {
+  return await getSteamData(appid, 'data');
+});
+
 ipcMain.handle('start-watchdog', async (event, arg) => {
   event.sender.send('reset-watchdog-status');
   console.log('starting watchdog');
