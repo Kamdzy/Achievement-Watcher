@@ -11,7 +11,7 @@ const moment = require('moment');
 const request = require('request-zero');
 const urlParser = require('url');
 const ffs = require('@xan105/fs');
-const regedit = require('regodit');
+const { readRegistryStringAndExpand, regKeyExists, readRegistryInteger, readRegistryString, listRegistryAllSubkeys } = require('../util/reg');
 const appPath = path.join(__dirname, '../');
 const steamID = require(path.join(appPath, 'util/steamID.js'));
 const steamLanguages = require(path.join(appPath, 'locale/steam.json'));
@@ -55,11 +55,7 @@ module.exports.scan = async (additionalSearch = []) => {
       path.join(process.env['LOCALAPPDATA'], 'SKIDROW'),
     ];
 
-    const mydocs = await regedit.promises.RegQueryStringValueAndExpand(
-      'HKCU',
-      'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders',
-      'Personal'
-    );
+    const mydocs = readRegistryStringAndExpand('HKCU', 'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders', 'Personal');
     if (mydocs) {
       search = search.concat([path.join(mydocs, 'SkidRow')]);
     }
@@ -115,7 +111,7 @@ module.exports.scanLegit = async (listingType = 0, steamAccFilter = '0') => {
   try {
     let data = [];
 
-    if (regedit.RegKeyExists('HKCU', 'Software/Valve/Steam') && listingType > 0) {
+    if (regKeyExists('HKCU', 'Software/Valve/Steam') && listingType > 0) {
       let steamPath = await getSteamPath();
       let publicUsers = await getSteamUsers(steamPath);
       if (steamAccFilter !== '0' && publicUsers.find((p) => p.user === steamAccFilter))
@@ -133,8 +129,7 @@ module.exports.scanLegit = async (listingType = 0, steamAccFilter = '0') => {
       for (let stats of list) {
         let isInstalled = true;
         if (listingType == 1)
-          isInstalled =
-            (await regedit.promises.RegQueryIntegerValue('HKCU', `Software/Valve/Steam/Apps/${stats.appID}`, 'Installed')) === '1' ? true : false;
+          isInstalled = readRegistryInteger('HKCU', `Software/Valve/Steam/Apps/${stats.appID}`, 'Installed') === '1' ? true : false;
 
         let user = publicUsers.find((user) => user.user == stats.userID);
 
@@ -170,7 +165,7 @@ module.exports.getCachedData = async (cfg) => {
   try {
     let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
 
-    if (await ffs.existsAndIsYoungerThan(filePath, { timeUnit: 'M', time: 12 })) {
+    if (await ffs.exists(filePath)) {
       result = JSON.parse(await ffs.readFile(filePath));
     }
   } catch (err) {
@@ -188,6 +183,7 @@ module.exports.getGameData = async (cfg) => {
   try {
     result = await this.getCachedData(cfg);
     if (result) return result;
+    if (!(await findInAppList(+cfg.appID))) throw `Error trying to load steam data for ${cfg.appID}`;
     const cache = path.join(cacheRoot, 'steam_cache/schema', cfg.lang);
     let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
     if (cfg.key) {
@@ -210,7 +206,7 @@ module.exports.getGameData = async (cfg) => {
 */
     return result;
   } catch (err) {
-    if (error.code) debug.log(`Could not load Steam data: ${err.code} - ${err.message}`);
+    if (err.code) debug.log(`Could not load Steam data: ${err.code} - ${err.message}`);
     else debug.log(`Could not load Steam data: ${err}`);
   }
 };
@@ -374,7 +370,7 @@ const getSteamPath = (module.exports.getSteamPath = async () => {
   let steamPath;
 
   for (let regHive of regHives) {
-    steamPath = await regedit.promises.RegQueryStringValue(regHive.root, regHive.key, regHive.name);
+    steamPath = readRegistryString(regHive.root, regHive.key, regHive.name);
     if (steamPath) {
       if (await ffs.exists(path.join(steamPath, 'steam.exe'))) {
         break;
@@ -389,7 +385,7 @@ const getSteamPath = (module.exports.getSteamPath = async () => {
 const getSteamUsers = (module.exports.getSteamUsers = async (steamPath) => {
   let result = [];
 
-  let users = await regedit.promises.RegListAllSubkeys('HKCU', 'Software/Valve/Steam/Users');
+  let users = listRegistryAllSubkeys('HKCU', 'Software/Valve/Steam/Users');
   if (!users) users = await glob('*([0-9])', { cwd: path.join(steamPath, 'userdata'), onlyDirectories: true, absolute: false });
 
   if (users.length == 0) throw 'No Steam User ID found';
@@ -418,7 +414,7 @@ const getSteamUsers = (module.exports.getSteamUsers = async (steamPath) => {
 });
 
 const getSteamUsersList = (module.exports.getSteamUsersList = async () => {
-  if (!regedit.RegKeyExists('HKCU', 'Software/Valve/Steam')) return [];
+  if (!regKeyExists('HKCU', 'Software/Valve/Steam')) return [];
   try {
     let steamPath = await getSteamPath();
     let publicUsers = await getSteamUsers(steamPath);
@@ -507,59 +503,6 @@ async function getSteamDataFromSRV(appID, lang) {
       list: result.achievements,
     },
   };
-}
-
-async function getMissingAchData(cfg, achievements) {
-  // some achievements dont have description if they are hidden so let's try to get them from a few other websites
-  {
-    let needUpdate = false;
-    for (const main of achievements.achievement.list) {
-      if (!main.description || main.description.length < 1) {
-        needUpdate = true;
-        break;
-      }
-    }
-    if (!needUpdate) return true;
-  }
-  {
-    try {
-      let url = `https://completionist.me/steam/app/${cfg.appID}/achievements`;
-      const { data: html } = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        },
-      });
-
-      const $ = cheerio.load(html);
-      const achs = [];
-
-      $('.explorer-list.achievements-list tr').each((_, el) => {
-        const name = $(el).find('td strong').text().trim();
-        const description = $(el).find('td span').text().trim().split('\n')[0].trim();
-
-        if (name) {
-          achs.push({ name, description });
-        }
-      });
-
-      for (const main of achievements.achievement.list) {
-        const match = achs.find((item) => item.name === main.displayName);
-        if (match && match.description && (!main.description || main.description.length <= 1)) {
-          main.description = match.description;
-        }
-      }
-
-      return true;
-    } catch (err) {
-      console.error('❌ Failed to fetch achievements:', err.message);
-    }
-  } // completionist.me
-
-  {
-  }
-
-  //each one failed
-  return false;
 }
 
 async function getSteamData(cfg) {

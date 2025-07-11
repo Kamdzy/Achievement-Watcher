@@ -4,7 +4,10 @@ const path = require('path');
 const { app } = require('electron');
 app.setName('Achievement Watcher');
 app.setPath('userData', path.join(app.getPath('appData'), app.getName()));
-const puppeteer = require('puppeteer');
+const puppeteerCore = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
 const { BrowserWindow, dialog, session, shell, ipcMain, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const remote = require('@electron/remote/main');
@@ -23,7 +26,7 @@ const sharp = require('sharp');
 const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
-client.on('loggedOn', () => {
+client.on('loggedOn', async () => {
   console.log('logged on');
 });
 
@@ -33,6 +36,7 @@ const userData = app.getPath('userData');
 if (manifest.config['disable-gpu']) app.disableHardwareAcceleration();
 if (manifest.config.appid) app.setAppUserModelId(manifest.config.appid);
 
+let puppeteerWindow = {};
 let steamDBWindow = null;
 let MainWin = null;
 let progressWindow = null;
@@ -66,7 +70,8 @@ async function getSteamData(appid, type) {
   }
   if (type === 'data') {
     let info = { appid };
-    openSteamDB(info);
+    await scrapeWithPuppeteer(info);
+    //openSteamDB(info);
     while (!info.achievements) {
       await delay(500);
     }
@@ -75,6 +80,17 @@ async function getSteamData(appid, type) {
   await delay(5000);
   return {};
 }
+
+ipcMain.on('close-puppeteer', async (event, arg) => {
+  if (!puppeteerWindow) puppeteerWindow = {};
+  if (puppeteerWindow.page) await puppeteerWindow.page.close();
+  if (puppeteerWindow.context) await puppeteerWindow.context.close();
+  if (puppeteerWindow.browser) await puppeteerWindow.browser.close();
+  puppeteerWindow.browser = undefined;
+  puppeteerWindow.page = undefined;
+  puppeteerWindow.context = undefined;
+  event.returnValue = true;
+});
 
 ipcMain.on('get-steam-data', async (event, arg) => {
   const appid = +arg.appid;
@@ -224,6 +240,14 @@ ipcMain.on('progress-test', async (event, arg) => {
   await createProgressWindow({ appid: 400, ach: 'PORTAL_TRANSMISSION_RECEIVED', description: 'Testing progress', count: '50/100' });
 });
 
+ipcMain.on('achievement-data-ready', () => {
+  progressWindow.showInactive();
+});
+
+ipcMain.handle('get-achievements', async (event, appid) => {
+  return await getSteamData(appid, 'data');
+});
+
 ipcMain.handle('start-watchdog', async (event, arg) => {
   event.sender.send('reset-watchdog-status');
   console.log('starting watchdog');
@@ -337,6 +361,138 @@ function openSteamDB(info = { appid: 269770 }) {
   });
 }
 
+async function scrapeWithPuppeteer(info = { appid: 269770 }) {
+  try {
+    const url = `https://steamhunters.com/apps/${info.appid}/achievements`;
+    if (!puppeteerWindow.browser)
+      puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteerCore.executablePath() });
+    if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
+    if (!puppeteerWindow.page) puppeteerWindow.page = await puppeteerWindow.context.newPage();
+    //if (info.achievements) return;
+    const url2 = `https://steamdb.info/app/${info.appid}/stats/`;
+    const page2 = puppeteerWindow.page;
+    await page2.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
+
+    await page2.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'userAgent', {
+        get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
+      });
+      Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32',
+      });
+      Object.defineProperty(navigator, 'vendor', {
+        get: () => 'Google Inc.',
+      });
+      window.chrome = { runtime: {} };
+    });
+
+    await page2.goto(url2, { waitUntil: 'domcontentloaded' });
+    const pageText = await page2.evaluate(() => document.body.innerText || '');
+    if (pageText.includes('No app was found matching this AppID')) {
+      info.achievements = [];
+      return;
+    }
+    info.name = await page2.evaluate(() => {
+      const el = document.querySelector('.achievements_game_name');
+      return el?.innerText.trim() || null;
+    });
+    await page2.waitForSelector('.achievements_list', { timeout: 5000 }).catch(() => {
+      throw new Error('Achievements list container not found');
+    });
+    // Get achievements
+    info.achievements = await page2.evaluate(() => {
+      const items = document.querySelectorAll('.achievements_list .achievement');
+      const data = [];
+
+      const appid = document.querySelector('.row.app-row table tbody tr')?.children?.[1]?.innerText.trim() || '';
+
+      items.forEach((item) => {
+        const idRaw = item.getAttribute('id') || '';
+        const id = idRaw.replace(/^achievement-/, '');
+        const name = item.querySelector('.achievement_name')?.innerText.trim() || '';
+
+        const descContainer = item.querySelector('.achievement_desc');
+        const spoiler = descContainer?.querySelector('.achievement_spoiler');
+        const hidden = !!spoiler;
+        const description = hidden ? spoiler?.innerText.trim() : descContainer?.innerText.trim() || '';
+
+        const icon = appid
+          ? 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/' +
+            appid +
+            '/' +
+            (item.querySelector('.achievement_image')?.getAttribute('data-name') || '')
+          : '';
+
+        const icongray = appid
+          ? 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/' +
+            appid +
+            '/' +
+            (item.querySelector('.achievement_image_small')?.getAttribute('data-name') || '')
+          : '';
+
+        data.push({
+          name: id,
+          default_value: 0,
+          displayName: name,
+          hidden: hidden ? 1 : 0,
+          description,
+          icon,
+          icongray,
+        });
+      });
+
+      return data;
+    });
+    return;
+    const page = await puppeteerWindow.newPage();
+
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36');
+
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    const pageContent = await page.content();
+    if (pageContent.includes('0 games found matching')) {
+      info.achievements = [];
+    } else {
+      await page.waitForSelector('li.check-item');
+      info.achievements = await page.evaluate(() => {
+        const items = Array.from(document.querySelectorAll('li.check-item'));
+        return items.map((item) => {
+          const name = item.querySelector('.achievement-name a')?.textContent.trim() || '';
+          const description = item.querySelector('.media-body .small')?.textContent.trim() || '';
+          const lockedIcon = item.querySelector('.media-left img')?.src || '';
+          const unlockedIcon = item.querySelector('.media-right img')?.src || '';
+          const imageSpan = item.querySelector('.media-left span.image');
+          let apiName = '';
+          if (imageSpan?.title) {
+            // The title attribute is multiline, find the line starting with "API Name:"
+            const lines = imageSpan.title.split('\n');
+            const apiLine = lines.find((line) => line.trim().startsWith('API Name:'));
+            if (apiLine) {
+              apiName = apiLine.replace('API Name:', '').trim();
+            }
+          }
+
+          // Hidden if name or description is missing or matches common "hidden" indicators
+          const ishidden = !name || name.toLowerCase().includes('secret') || !description;
+
+          return {
+            name: apiName,
+            default_value: 0,
+            displayName: name,
+            description,
+            hidden: ishidden ? 1 : 0,
+            icon: unlockedIcon,
+            icongray: lockedIcon,
+          };
+        });
+      });
+    }
+    await page.close();
+  } catch (err) {
+    debug.log(err);
+  }
+}
+
 async function searchForGameName(info = { appid: '' }) {
   if (info.appid.length === 0) {
     info.title = undefined;
@@ -348,8 +504,10 @@ async function searchForGameName(info = { appid: '' }) {
   let matchResult;
 
   async function scrapePage(startIndex) {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    if (!puppeteerWindow.browser)
+      puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteerCore.executablePath() });
+    if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
+    const page = await puppeteerWindow.context.newPage();
 
     const url = `https://store.epicgames.com/pt/browse?sortBy=releaseDate&sortDir=DESC&tag=Windows&priceTier=tier3&category=Game&count=40&start=${startIndex}`;
 
@@ -378,7 +536,6 @@ async function searchForGameName(info = { appid: '' }) {
       console.error(`❌ Error on page ${startIndex}:`, err.message);
     } finally {
       await page.close();
-      await browser.close();
     }
     return matchResult;
   }
@@ -661,6 +818,7 @@ function createOverlayWindow(selectedConfig) {
     fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, '../overlayPreload.js'),
+      additionalArguments: [`--isDev=${app.isDev ? 'true' : 'false'}`, `--userDataPath=${userData}`],
       contextIsolation: true,
       nodeIntegration: false,
       devTools: manifest.config.debug || false,
@@ -806,6 +964,7 @@ async function createNotificationWindow(info) {
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, '../overlayPreload.js'),
+      additionalArguments: [`--isDev=${app.isDev ? 'true' : 'false'}`, `--userDataPath=${userData}`],
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -899,6 +1058,7 @@ async function createPlaytimeWindow(info) {
     fullscreenable: false,
     webPreferences: {
       preload: path.join(__dirname, '../overlayPreload.js'),
+      additionalArguments: [`--isDev=${app.isDev ? 'true' : 'false'}`, `--userDataPath=${userData}`],
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -914,7 +1074,7 @@ async function createPlaytimeWindow(info) {
   ).href;
   playtimeWindow.once('ready-to-show', () => {
     if (playtimeWindow && !playtimeWindow.isDestroyed()) {
-      playtimeWindow.show();
+      playtimeWindow.showInactive();
 
       //const prefs = fs.existsSync(preferencesPath) ? JSON.parse(fs.readFileSync(preferencesPath, 'utf8')) : {};
       const scale = 1; //prefs.notificationScale || 1;
@@ -939,7 +1099,7 @@ async function createPlaytimeWindow(info) {
     }
   });
 
-  playtimeWindow.loadFile(path.join(manifest.config.debug ? path.join(__dirname, '..') : userData, '\\view\\playtime.html'));
+  playtimeWindow.loadFile(path.join(manifest.config.debug ? path.join(__dirname, '..') : userData, 'view', 'playtime.html'));
 }
 
 async function createProgressWindow(info) {

@@ -8,7 +8,7 @@ const glob = require('fast-glob');
 const fs = require('fs');
 const ffs = require('@xan105/fs');
 const listDrive = require(path.join(appPath, 'util/listDrive.js'));
-const regedit = require('regodit');
+const { readRegistryStringAndExpand } = require('../util/reg');
 
 let file;
 
@@ -122,11 +122,7 @@ module.exports.scan = async (dir) => {
           });
         }
       } else if (info.Settings.AppID && info.Settings.PlayerName && info.Settings.SaveType == 1) {
-        const mydocs = await regedit.promises.RegQueryStringValueAndExpand(
-          'HKCU',
-          'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders',
-          'Personal'
-        );
+        const mydocs = readRegistryStringAndExpand('HKCU', 'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders', 'Personal');
         if (mydocs) {
           result.push({
             appid: info.Settings.AppID,
@@ -227,11 +223,7 @@ module.exports.scan = async (dir) => {
         info.GameSettings.UserName &&
         info.GameSettings.UserName !== ''
       ) {
-        const mydocs = await regedit.promises.RegQueryStringValueAndExpand(
-          'HKCU',
-          'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders',
-          'Personal'
-        );
+        const mydocs = readRegistryStringAndExpand('HKCU', 'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders', 'Personal');
         if (mydocs) {
           let dirpath = path.join(mydocs, info.GameSettings.UserName, info.GameSettings.AppId, 'SteamEmu');
 
