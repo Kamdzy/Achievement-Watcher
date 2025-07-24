@@ -1144,21 +1144,10 @@ async function createProgressWindow(info) {
   const settingsJS = require(path.join(__dirname, '../settings.js'));
   settingsJS.setUserDataPath(userData);
   let configJS = await settingsJS.load();
-  const achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
-  achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
-  let ach = await achievementsJS.getAchievementsForAppid(configJS, info.appid);
-  let a = ach.achievement.list.find((ac) => ac.name === info.ach);
-  let [count, max_count] = info.count.split('/').map(Number);
-  let data = {
-    progress: count,
-    max_progress: max_count,
-    displayName: a.displayName,
-    icon: pathToFileURL(await fetchIcon(a.icon, info.appid)).href,
-  };
+  info.option = configJS;
   progressWindow.once('ready-to-show', () => {
-    progressWindow.showInactive();
-    progressWindow.webContents.send('show-progress', data);
-    createOverlayWindow({ appid: info.appid, description: 'refresh' });
+    progressWindow.webContents.send('init-achievement', info);
+    //createOverlayWindow({ appid: info.appid, description: 'refresh' });
   });
 
   progressWindow.on('closed', () => {
