@@ -81,7 +81,7 @@ async function getSteamData(appid, type) {
   return {};
 }
 
-ipcMain.on('close-puppeteer', async (event, arg) => {
+async function closePuppeteer() {
   if (!puppeteerWindow) puppeteerWindow = {};
   if (puppeteerWindow.page) await puppeteerWindow.page.close();
   if (puppeteerWindow.context) await puppeteerWindow.context.close();
@@ -89,6 +89,10 @@ ipcMain.on('close-puppeteer', async (event, arg) => {
   puppeteerWindow.browser = undefined;
   puppeteerWindow.page = undefined;
   puppeteerWindow.context = undefined;
+}
+
+ipcMain.on('close-puppeteer', async (event, arg) => {
+  await closePuppeteer();
   event.returnValue = true;
 });
 
@@ -393,7 +397,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }) {
       return;
     }
     info.name = await page2.evaluate(() => {
-      const el = document.querySelector('.achievements_game_name');
+      const el = document.querySelector('.pagehead-title h1');
       return el?.innerText.trim() || null;
     });
     await page2.waitForSelector('.achievements_list', { timeout: 5000 }).catch(() => {
