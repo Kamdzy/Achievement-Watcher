@@ -5,6 +5,7 @@ const { app } = require('electron');
 app.setName('Achievement Watcher');
 app.setPath('userData', path.join(app.getPath('appData'), app.getName()));
 const puppeteerCore = require('puppeteer');
+const ChromeLauncher = require('chrome-launcher');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
@@ -32,6 +33,9 @@ client.on('loggedOn', async () => {
 
 const manifest = require('../package.json');
 const userData = app.getPath('userData');
+let settingsJS = null;
+let configJS = null;
+let achievementsJS = null;
 
 if (manifest.config['disable-gpu']) app.disableHardwareAcceleration();
 if (manifest.config.appid) app.setAppUserModelId(manifest.config.appid);
@@ -90,6 +94,19 @@ async function closePuppeteer() {
   puppeteerWindow.page = undefined;
   puppeteerWindow.context = undefined;
 }
+
+ipcMain.on('capture-screen', async (event, { image, filename }) => {
+  if (!configJS.souvenir_screenshot.screenshot) return;
+  const buffer = Buffer.from(image, 'base64');
+  const savePath = path.join(
+    configJS.souvenir_screenshot.custom_dir || app.getPath('pictures'),
+    notificationWindow.info.game,
+    notificationWindow.info.description + '.png'
+  );
+  fs.mkdirSync(path.dirname(savePath), { recursive: true });
+  if (!configJS.souvenir_screenshot.overwrite_image && fs.existsSync(savePath)) return;
+  fs.writeFileSync(savePath, buffer);
+});
 
 ipcMain.on('close-puppeteer', async (event, arg) => {
   await closePuppeteer();
@@ -367,28 +384,18 @@ function openSteamDB(info = { appid: 269770 }) {
 
 async function scrapeWithPuppeteer(info = { appid: 269770 }) {
   try {
+    const chromePath = ChromeLauncher.Launcher.getInstallations()[0];
     const url = `https://steamhunters.com/apps/${info.appid}/achievements`;
     if (!puppeteerWindow.browser)
-      puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteerCore.executablePath() });
+      puppeteerWindow.browser = await puppeteer.launch({
+        headless: false,
+        executablePath: chromePath,
+      });
     if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
     if (!puppeteerWindow.page) puppeteerWindow.page = await puppeteerWindow.context.newPage();
     //if (info.achievements) return;
     const url2 = `https://steamdb.info/app/${info.appid}/stats/`;
     const page2 = puppeteerWindow.page;
-    await page2.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36');
-
-    await page2.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'userAgent', {
-        get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-      });
-      Object.defineProperty(navigator, 'platform', {
-        get: () => 'Win32',
-      });
-      Object.defineProperty(navigator, 'vendor', {
-        get: () => 'Google Inc.',
-      });
-      window.chrome = { runtime: {} };
-    });
 
     await page2.goto(url2, { waitUntil: 'domcontentloaded' });
     const pageText = await page2.evaluate(() => document.body.innerText || '');
@@ -508,8 +515,7 @@ async function searchForGameName(info = { appid: '' }) {
   let matchResult;
 
   async function scrapePage(startIndex) {
-    if (!puppeteerWindow.browser)
-      puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteerCore.executablePath() });
+    if (!puppeteerWindow.browser) puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteer.executablePath() });
     if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
     const page = await puppeteerWindow.context.newPage();
 
@@ -898,17 +904,40 @@ async function createNotificationWindow(info) {
     return;
   }
   isNotificationShowing = true;
-  const settingsJS = require(path.join(__dirname, '../settings.js'));
-  settingsJS.setUserDataPath(userData);
-  let configJS = await settingsJS.load();
-  configJS.achievement_source.greenLuma = false;
-  configJS.achievement_source.importCache = false;
-  configJS.achievement_source.rpcs3 = false;
-  const achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
-  achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
-  let ach = await achievementsJS.getAchievementsForAppid(configJS, info.appid);
-  let a = ach.achievement.list.find((ac) => ac.name === String(info.ach));
+  if (!settingsJS) {
+    settingsJS = require(path.join(__dirname, '../settings.js'));
+    settingsJS.setUserDataPath(userData);
+  }
+  if (!configJS) configJS = await settingsJS.load();
+  //configJS.achievement_source.greenLuma = false;
+  //configJS.achievement_source.importCache = false;
+  //configJS.achievement_source.rpcs3 = false;
+  if (!achievementsJS) {
+    achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
+    achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
+  }
+  let a;
+  if (!info.source) info.source = 'steam';
+  let g = await achievementsJS.getGameFromCache(info.appid, info.source, configJS);
+  switch (info.source.toLowerCase()) {
+    case 'epic':
+    case 'gog':
+    case 'luma':
+    case 'steam':
+    default:
+      if (g) {
+        a = g.achievement.list.find((ac) => ac.name === String(info.ach));
+        info.game = g.name;
+        info.description = a.displayName;
+        break;
+      }
+      a = await getSteamData(info.appid, 'data');
+      info.game = a.name;
+      a = a.achievements.find((ac) => ac.name === String(info.ach));
+      info.description = a.displayName;
+  }
 
+  closePuppeteer();
   const message = {
     displayName: a.displayName || '',
     description: a.description || '',
@@ -1005,6 +1034,7 @@ async function createNotificationWindow(info) {
   notificationWindow.setFullScreenable(false);
   notificationWindow.setFocusable(true);
   notificationWindow.setIgnoreMouseEvents(true, { forward: true });
+  notificationWindow.info = info;
 
   if (configJS.notification_toast.customToastAudio === '2' || configJS.notification_toast.customToastAudio === '1') {
     let toastAudio = require(path.join(__dirname, '../util/toastAudio.js'));
@@ -1028,6 +1058,10 @@ async function createNotificationWindow(info) {
     isNotificationShowing = false;
     notificationWindow = null;
     if (earnedNotificationQueue.length > 0) createNotificationWindow(earnedNotificationQueue.shift());
+  });
+
+  notificationWindow.webContents.on('console-message', (e, level, message, line, sourceID) => {
+    debug.log(message, sourceID, line);
   });
 
   notificationWindow.loadFile(presetHtml);
@@ -1145,9 +1179,11 @@ async function createProgressWindow(info) {
   progressWindow.setFocusable(true);
   progressWindow.setIgnoreMouseEvents(true, { forward: true });
 
-  const settingsJS = require(path.join(__dirname, '../settings.js'));
-  settingsJS.setUserDataPath(userData);
-  let configJS = await settingsJS.load();
+  if (!settingsJS) {
+    settingsJS = require(path.join(__dirname, '../settings.js'));
+    settingsJS.setUserDataPath(userData);
+  }
+  if (!configJS) configJS = await settingsJS.load();
   info.option = configJS;
   progressWindow.once('ready-to-show', () => {
     progressWindow.webContents.send('init-achievement', info);
@@ -1241,6 +1277,10 @@ function checkResources() {
   if (!fs.existsSync(path.join(userData, 'view'))) {
     const view = path.join(resourcesPath, 'view');
     copyFolderRecursive(view, path.join(userData, 'view'));
+  }
+  if (!fs.existsSync(path.join(userData, 'Source'))) {
+    const source = path.join(resourcesPath, 'Source');
+    copyFolderRecursive(source, path.join(userData, 'Source'));
   }
 
   if (!fs.existsSync(path.join(app.getPath('appData'), 'obs-studio', 'basic', 'profiles', 'AW'))) {
