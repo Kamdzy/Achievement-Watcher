@@ -175,6 +175,28 @@ module.exports.getCachedData = async (cfg) => {
   return result;
 };
 
+module.exports.saveGameToCache = async (cfg) => {
+  const cache = path.join(cacheRoot, 'steam_cache/schema', cfg.lang);
+  const filePath = path.join(`${cache}`, `${cfg.appid}.db`);
+
+  const result = {
+    name: cfg.name,
+    appid: cfg.appid,
+    binary: null,
+    img: {
+      header: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/header.jpg`,
+      background: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/page_bg_generated_v6b.jpg`,
+      portrait: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/library_600x900.jpg`,
+      icon: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/${cfg.icon}.jpg`,
+    },
+    achievement: {
+      total: cfg.achievements.length,
+      list: cfg.achievements,
+    },
+  };
+  ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
+};
+
 module.exports.getGameData = async (cfg) => {
   if (!steamLanguages.some((language) => language.api === cfg.lang)) {
     throw 'Unsupported API language code';

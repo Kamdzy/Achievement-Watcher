@@ -24,13 +24,6 @@ contextBridge.exposeInMainWorld('api', {
   selectFolder: () => ipcRenderer.invoke('selectFolder'),
   deleteConfig: (configName) => ipcRenderer.invoke('delete-config', configName),
 
-  // Achievements loading
-  loadAchievementData: (configName) => ipcRenderer.invoke('load-achievements', configName),
-  loadSavedAchievements: (configName) => ipcRenderer.invoke('load-saved-achievements', configName),
-
-  // Presets
-  loadPresets: () => ipcRenderer.invoke('load-presets'),
-
   // Notification
   showNotification: (data) => ipcRenderer.send('show-notification', data),
   onNotification: (callback) => ipcRenderer.on('show-notification', (event, data) => callback(data)),
@@ -49,7 +42,7 @@ contextBridge.exposeInMainWorld('api', {
   // Update the configuration (now uses the 'update-config' event)
   updateConfig: (configData) => ipcRenderer.send('update-config', configData),
   toggleOverlay: (selectedConfig) => ipcRenderer.send('toggle-overlay', selectedConfig),
-  onLoadOverlayData: (callback) => ipcRenderer.on('load-overlay-data', (event, config) => callback(config)),
+  onOverlay: (callback) => ipcRenderer.on('show-overlay', (event, config) => callback(config)),
   onSetLanguage: (callback) => ipcRenderer.on('set-language', (event, lang) => callback(lang)),
 
   // Other functionalities
@@ -58,12 +51,8 @@ contextBridge.exposeInMainWorld('api', {
   getSounds: () => ipcRenderer.invoke('get-sound-files'),
   getSoundFullPath: (fileName) => ipcRenderer.invoke('get-sound-path', fileName),
   onPlaySound: (callback) => ipcRenderer.on('play-sound', (event, sound) => callback(sound)),
-  onInitData: (callback) =>
-    ipcRenderer.on('init-achievement', async (event, info) => {
-      const ach = await achievementsJS.getAchievementsForAppid(info.option, info.appid);
-      ipcRenderer.send('achievement-data-ready');
-      callback({ info, ach });
-    }),
+  onProgress: (callback) => ipcRenderer.on('show-progress', (event, info) => callback(info)),
+
   getAchievementsForAppid: (option, appid) => achievementsJS.getAchievementsForAppid(option, appid),
   onProgressUpdate: (callback) => ipcRenderer.on('show-progress', (event, data) => callback(data)),
   closeNotificationWindow: () => ipcRenderer.send('close-notification-window'),

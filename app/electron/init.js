@@ -60,28 +60,31 @@ let debug = new (require('@xan105/log'))({
 });
 
 async function getSteamData(appid, type) {
-  if (type === 'icon') {
-    await client.getProductInfo([appid], [], false, async (err, data) => {
-      const appInfo = data[appid].appinfo;
-      return `https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/${appid}/${appInfo.common.icon}.jpg`;
-    });
-  }
-  if (type === 'portrait') {
-    await client.getProductInfo([appid], [], false, async (err, data) => {
-      const appInfo = data[appid].appinfo;
-      return `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/${appInfo.common.library_assets_full.library_capsule.image.english}`;
-    });
-  }
-  if (type === 'data') {
-    let info = { appid };
-    await scrapeWithPuppeteer(info);
-    //openSteamDB(info);
-    while (!info.achievements) {
-      await delay(500);
+  try {
+    if (type === 'icon') {
+      await client.getProductInfo([appid], [], false, async (err, data) => {
+        const appInfo = data[appid].appinfo;
+        return `https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/${appid}/${appInfo.common.icon}.jpg`;
+      });
     }
-    return info;
+    if (type === 'portrait') {
+      await client.getProductInfo([appid], [], false, async (err, data) => {
+        const appInfo = data[appid].appinfo;
+        return `https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/${appid}/${appInfo.common.library_assets_full.library_capsule.image.english}`;
+      });
+    }
+    if (type === 'data') {
+      let info = { appid };
+      await scrapeWithPuppeteer(info);
+      while (!info.achievements) {
+        await delay(500);
+      }
+      return info;
+    }
+    await delay(5000);
+  } catch (err) {
+    console.log(err);
   }
-  await delay(5000);
   return {};
 }
 
@@ -93,6 +96,41 @@ async function closePuppeteer() {
   puppeteerWindow.browser = undefined;
   puppeteerWindow.page = undefined;
   puppeteerWindow.context = undefined;
+}
+
+async function startEngines() {
+  if (!settingsJS) {
+    settingsJS = require(path.join(__dirname, '../settings.js'));
+    settingsJS.setUserDataPath(userData);
+  }
+  if (!configJS) configJS = await settingsJS.load();
+  if (!achievementsJS) {
+    achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
+    achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
+  }
+}
+
+async function getCachedData(info) {
+  if (!info.source) info.source = 'steam';
+  let g = await achievementsJS.getGameFromCache(info.appid, info.source, configJS);
+  switch (info.source.toLowerCase()) {
+    case 'epic':
+    case 'gog':
+    case 'luma':
+    case 'steam':
+    default:
+      if (g) {
+        info.a = g.achievement.list.find((ac) => ac.name === String(info.ach));
+        info.game = g;
+        info.description = info.a?.displayName;
+        return;
+      }
+      let data = await getSteamData(info.appid, 'data');
+      info.game = data;
+      await achievementsJS.saveGameToCache(info, configJS.achievement.lang);
+      info.a = info.game.achievements.find((ac) => ac.name === String(info.ach));
+      info.description = info.a?.displayName;
+  }
 }
 
 ipcMain.on('capture-screen', async (event, { image, filename }) => {
@@ -290,98 +328,6 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * @param {{appid: string}} info
- */
-function openSteamDB(info = { appid: 269770 }) {
-  if (steamDBWindow) {
-    if (steamDBWindow.isMinimized()) steamDBWindow.restore();
-    steamDBWindow.focus();
-  } else {
-    steamDBWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        partition: 'persist:cloudflare', // 💡 persist session across loads
-      },
-    });
-
-    steamDBWindow.webContents.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
-    );
-    // Inject JS *before* the page starts executing its own scripts
-    steamDBWindow.webContents.on('dom-ready', async () => {
-      await steamDBWindow.webContents.executeJavaScript(`
-      // Override navigator.userAgent
-      Object.defineProperty(navigator, 'userAgent', {
-        get: () => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36'
-      });
-
-      // Override platform
-      Object.defineProperty(navigator, 'platform', {
-        get: () => 'Win32'
-      });
-
-      // Override vendor
-      Object.defineProperty(navigator, 'vendor', {
-        get: () => 'Google Inc.'
-      });
-
-      // Fake Chrome object
-      window.chrome = { runtime: {} };
-    `);
-    });
-  }
-  steamDBWindow.loadURL(`https://steamdb.info/app/${info.appid}/stats/`);
-  steamDBWindow.webContents.on('did-finish-load', async () => {
-    let achievements = undefined;
-    let name = undefined;
-    try {
-      while (!achievements || achievements.length === 0) {
-        name = await steamDBWindow.webContents.executeJavaScript(`
-          (() => {
-            const el = document.querySelector('.achievements_game_name');
-            return el?.innerText.trim() || null;
-          })()
-        `);
-        achievements = await steamDBWindow.webContents.executeJavaScript(`
-          (() => {
-            const items = document.querySelectorAll('.achievements_list .achievement');
-            const data = [];
-            const appid = document.querySelector('.row.app-row table tbody tr')?.children?.[1]?.innerText.trim() || '';
-            items.forEach(item => {
-              const idRaw = item.getAttribute('id') || '';
-              const id = idRaw.replace(/^achievement-/, '');
-              const name = item.querySelector('.achievement_name')?.innerText.trim() || '';
-              
-              const descContainer = item.querySelector('.achievement_desc');
-              const spoiler = descContainer?.querySelector('.achievement_spoiler');
-              const hidden = !!spoiler;
-              const description = hidden
-                ? spoiler?.innerText.trim()
-                : descContainer?.innerText.trim() || '';
-              const icon = 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/'+appid+'/' + item.querySelector('.achievement_image')?.getAttribute('data-name') || '';
-              const icongray = 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/'+appid+'/' + item.querySelector('.achievement_image_small')?.getAttribute('data-name') || '';
-              data.push({ name: id, default_value:0, displayName: name, hidden: hidden ? 1 : 0, description,  icon, icongray});
-            });
-
-            return data;
-          })()
-        `);
-        await delay(500);
-      }
-      info.name = name;
-      info.achievements = achievements;
-      console.log('Extracted achievements:', achievements.length);
-    } catch (error) {
-      console.error('Failed to extract achievements:', error);
-    }
-  });
-}
-
 async function scrapeWithPuppeteer(info = { appid: 269770 }) {
   try {
     const chromePath = ChromeLauncher.Launcher.getInstallations()[0];
@@ -394,6 +340,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }) {
     if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
     if (!puppeteerWindow.page) puppeteerWindow.page = await puppeteerWindow.context.newPage();
     //if (info.achievements) return;
+    const url1 = `https://steamdb.info/app/${info.appid}/info/`;
     const url2 = `https://steamdb.info/app/${info.appid}/stats/`;
     const page2 = puppeteerWindow.page;
 
@@ -453,6 +400,16 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }) {
       });
 
       return data;
+    });
+
+    await page2.goto(url1, { waitUntil: 'domcontentloaded' });
+    info.icon = await page2.evaluate(() => {
+      const el = document.querySelector('#js-assets-table');
+      const row = Array.from(el.rows).find((r) => r.cells[0].textContent.trim() === 'icon');
+
+      if (row) {
+        return row.cells[1].querySelector('a').textContent.trim();
+      }
     });
     return;
     const page = await puppeteerWindow.newPage();
@@ -795,23 +752,27 @@ function createMainWindow() {
 }
 
 /**
- * @param {{appid: string, description:string}} selectedConfig
+ * @param {{appid: string, action:string}} info
  */
-function createOverlayWindow(selectedConfig) {
-  if (!selectedConfig.description) selectedConfig.description = 'open';
+async function createOverlayWindow(info) {
+  if (!info.action) info.action = 'open';
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    if (String(selectedConfig.appid) === '0' || selectedConfig.description == 'close') {
+    if (String(info.appid) === '0' || info.action == 'close') {
       overlayWindow.close();
       return;
     }
-    if (selectedConfig.description === 'refresh') {
-      overlayWindow.webContents.send('refresh-achievements-table', String(selectedConfig.appid));
+    if (info.action === 'refresh') {
+      overlayWindow.webContents.send('refresh-achievements-table', String(info.appid));
       return;
     }
   }
-  if (String(selectedConfig.appid) === '0' || selectedConfig.description === 'refresh') return;
+  if (String(info.appid) === '0' || info.action === 'refresh') return;
   const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
   isOverlayShowing = true;
+
+  await startEngines();
+  await getCachedData(info);
+  info.game = await achievementsJS.getSavedAchievementsForAppid(configJS, info.appid);
 
   overlayWindow = new BrowserWindow({
     width: 450,
@@ -877,18 +838,8 @@ function createOverlayWindow(selectedConfig) {
   overlayWindow.loadFile(path.join(manifest.config.debug ? '' : userData, 'view\\overlay.html'));
   let selectedLanguage = 'english';
   overlayWindow.webContents.on('did-finish-load', () => {
-    overlayWindow.webContents.send('load-overlay-data', selectedConfig.appid);
+    overlayWindow.webContents.send('show-overlay', info.game);
     overlayWindow.webContents.send('set-language', selectedLanguage);
-  });
-
-  const isReady = [
-    new Promise(function (resolve) {
-      overlayWindow.once('ready-to-show', () => {
-        return resolve();
-      }); //Window is loaded and ready to be drawn
-    }),
-  ];
-  Promise.all(isReady).then(() => {
     overlayWindow.showInactive();
   });
 
@@ -904,45 +855,16 @@ async function createNotificationWindow(info) {
     return;
   }
   isNotificationShowing = true;
-  if (!settingsJS) {
-    settingsJS = require(path.join(__dirname, '../settings.js'));
-    settingsJS.setUserDataPath(userData);
-  }
-  if (!configJS) configJS = await settingsJS.load();
-  //configJS.achievement_source.greenLuma = false;
-  //configJS.achievement_source.importCache = false;
-  //configJS.achievement_source.rpcs3 = false;
-  if (!achievementsJS) {
-    achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
-    achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
-  }
-  let a;
-  if (!info.source) info.source = 'steam';
-  let g = await achievementsJS.getGameFromCache(info.appid, info.source, configJS);
-  switch (info.source.toLowerCase()) {
-    case 'epic':
-    case 'gog':
-    case 'luma':
-    case 'steam':
-    default:
-      if (g) {
-        a = g.achievement.list.find((ac) => ac.name === String(info.ach));
-        info.game = g.name;
-        info.description = a.displayName;
-        break;
-      }
-      a = await getSteamData(info.appid, 'data');
-      info.game = a.name;
-      a = a.achievements.find((ac) => ac.name === String(info.ach));
-      info.description = a.displayName;
-  }
+
+  await startEngines();
+  await getCachedData(info);
 
   closePuppeteer();
   const message = {
-    displayName: a.displayName || '',
-    description: a.description || '',
-    icon: pathToFileURL(await fetchIcon(a.icon, info.appid)).href,
-    icon_gray: pathToFileURL(await fetchIcon(a.icongray, info.appid)).href,
+    displayName: info.a.displayName || '',
+    description: info.a.description || '',
+    icon: pathToFileURL(await fetchIcon(info.a.icon, info.appid)).href,
+    icon_gray: pathToFileURL(await fetchIcon(info.a.icongray, info.appid)).href,
     preset: configJS.overlay.preset,
     position: configJS.overlay.position,
     scale: parseFloat(configJS.overlay.scale),
@@ -1051,7 +973,7 @@ async function createNotificationWindow(info) {
       iconPath: message.icon,
       scale,
     });
-    createOverlayWindow({ appid: info.appid, description: 'refresh' });
+    createOverlayWindow({ appid: info.appid, action: 'refresh' });
   });
 
   notificationWindow.on('closed', async () => {
@@ -1179,15 +1101,14 @@ async function createProgressWindow(info) {
   progressWindow.setFocusable(true);
   progressWindow.setIgnoreMouseEvents(true, { forward: true });
 
-  if (!settingsJS) {
-    settingsJS = require(path.join(__dirname, '../settings.js'));
-    settingsJS.setUserDataPath(userData);
-  }
-  if (!configJS) configJS = await settingsJS.load();
-  info.option = configJS;
-  progressWindow.once('ready-to-show', () => {
-    progressWindow.webContents.send('init-achievement', info);
-    //createOverlayWindow({ appid: info.appid, description: 'refresh' });
+  await startEngines();
+  await getCachedData(info);
+  closePuppeteer();
+  info.a.icongray = pathToFileURL(await fetchIcon(info.a.icongray, info.appid)).href;
+
+  progressWindow.webContents.on('did-finish-load', () => {
+    progressWindow.showInactive();
+    progressWindow.webContents.send('show-progress', info);
   });
 
   progressWindow.on('closed', () => {
@@ -1225,25 +1146,27 @@ function getPresetDimensions(presetFolder) {
 function parseArgs(args) {
   let windowType = args['wintype'] || 'main'; // overlay, playtime, progress, achievement
   let appid = args['appid']; // appid
+  let source = args['source'] || 'steam'; // source: steam, epic, gog, luma
   let ach = args['ach']; // achievement name
   let description = args['description']; // text
   let count = args['count'] || '0/100'; // count / max_count
   console.log('opening ' + windowType + ' window');
   switch (windowType) {
     case 'playtime':
-      createPlaytimeWindow({ appid, description });
+      createPlaytimeWindow({ appid, source, description });
       break;
     case 'overlay':
-      createOverlayWindow({ appid, description });
+      createOverlayWindow({ appid, source, action: description });
       break;
     case 'progress':
-      createProgressWindow({ appid, ach, count });
+      createProgressWindow({ appid, source, ach, count });
       break;
     case 'achievement':
-      createNotificationWindow({ appid, ach });
+      createNotificationWindow({ appid, source, ach });
       break;
     case 'main':
     default:
+      checkResources();
       createMainWindow();
       break;
   }
@@ -1259,29 +1182,34 @@ function checkResources() {
       if (e.isDirectory()) {
         copyFolderRecursive(srcPath, dstPath);
       } else {
-        fs.copyFileSync(srcPath, dstPath);
+        let shouldCopy = false;
+        if (!fs.existsSync(dstPath)) shouldCopy = true;
+        else {
+          try {
+            fs.accessSync(dstPath, fs.constants.W_OK);
+            const srcStat = fs.statSync(srcPath);
+            const dstStat = fs.statSync(dstPath);
+            if (srcStat.size !== dstStat.size || srcStat.mtimeMs > dstStat.mtimeMs) shouldCopy = true;
+          } catch {}
+        }
+        if (shouldCopy) fs.copyFileSync(srcPath, dstPath);
       }
     }
   }
 
   const resourcesPath = path.join(manifest.config.debug ? path.join(__dirname, '..') : path.join(process.resourcesPath, 'userdata'));
-  if (!fs.existsSync(path.join(userData, 'Presets'))) {
-    const presets = path.join(resourcesPath, 'presets');
-    copyFolderRecursive(presets, path.join(userData, 'Presets'));
-  }
 
-  if (!fs.existsSync(path.join(userData, 'Media'))) {
-    const media = path.join(resourcesPath, 'Media');
-    copyFolderRecursive(media, path.join(userData, 'Media'));
-  }
-  if (!fs.existsSync(path.join(userData, 'view'))) {
-    const view = path.join(resourcesPath, 'view');
-    copyFolderRecursive(view, path.join(userData, 'view'));
-  }
-  if (!fs.existsSync(path.join(userData, 'Source'))) {
-    const source = path.join(resourcesPath, 'Source');
-    copyFolderRecursive(source, path.join(userData, 'Source'));
-  }
+  const presets = path.join(resourcesPath, 'presets');
+  copyFolderRecursive(presets, path.join(userData, 'Presets'));
+
+  const media = path.join(resourcesPath, 'Media');
+  copyFolderRecursive(media, path.join(userData, 'Media'));
+
+  const view = path.join(resourcesPath, 'view');
+  copyFolderRecursive(view, path.join(userData, 'view'));
+
+  const source = path.join(resourcesPath, 'Source');
+  copyFolderRecursive(source, path.join(userData, 'Source'));
 
   if (!fs.existsSync(path.join(app.getPath('appData'), 'obs-studio', 'basic', 'profiles', 'AW'))) {
     const profile = path.join(resourcesPath, 'obs', 'AW');
@@ -1292,7 +1220,6 @@ function checkResources() {
 
 try {
   if (app.requestSingleInstanceLock() !== true) app.quit();
-  checkResources();
   app
     .on('ready', async function () {
       autoUpdater.checkForUpdatesAndNotify();
