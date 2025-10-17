@@ -24,6 +24,7 @@ const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
 
+let appidListMap = new Map();
 let debug;
 let cacheRoot;
 module.exports.setUserDataPath = (p) => {
@@ -155,7 +156,7 @@ module.exports.scanLegit = async (listingType = 0, steamAccFilter = '0') => {
   }
 };
 
-module.exports.getCachedData = async (cfg) => {
+module.exports.getCachedData = (cfg) => {
   if (!steamLanguages.some((language) => language.api === cfg.lang)) {
     throw 'Unsupported API language code';
   }
@@ -164,9 +165,8 @@ module.exports.getCachedData = async (cfg) => {
   let result;
   try {
     let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
-
-    if (await ffs.exists(filePath)) {
-      result = JSON.parse(await ffs.readFile(filePath));
+    if (fs.existsSync(filePath)) {
+      result = JSON.parse(fs.readFileSync(filePath));
     }
   } catch (err) {
     if (err.code) throw `Could not load Steam data: ${err.code} - ${err.message}`;
@@ -194,7 +194,8 @@ module.exports.saveGameToCache = async (cfg) => {
       list: cfg.achievements,
     },
   };
-  ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
 };
 
 module.exports.getGameData = async (cfg) => {
@@ -202,30 +203,30 @@ module.exports.getGameData = async (cfg) => {
     throw 'Unsupported API language code';
   }
   let result;
+  let needSaving = false;
+  const cache = path.join(cacheRoot, 'steam_cache/schema', cfg.lang);
+  let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
+
   try {
-    result = await this.getCachedData(cfg);
-    if (result) return result;
-    if (!(await findInAppList(+cfg.appID))) throw `Error trying to load steam data for ${cfg.appID}`;
-    const cache = path.join(cacheRoot, 'steam_cache/schema', cfg.lang);
-    let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
-    if (cfg.key) {
-      result = await getSteamData(cfg);
-    } else {
-      if(configJS.api.useRemoteServer) {
-        result = await getSteamDataFromRemoteSRV(cfg.appID, cfg.lang);
+    result = this.getCachedData(cfg);
+    if (!result || !result.name) {
+      if (!(await findInAppList(+cfg.appID))) throw `Error trying to load steam data for ${cfg.appID}`;
+      if (cfg.key) {
+        result = await getSteamData(cfg);
       } else {
-        result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+        if(configJS.api.useRemoteServer) {
+          result = await getSteamDataFromRemoteSRV(cfg.appID, cfg.lang);
+        } else {
+          result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
+        }
       }
+      needSaving = true;
     }
-    ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
-    return result;
-    //TODO: data using key is incomplete
-    /*
-    if (await getMissingAchData(cfg, result)) {
-      //updated missing data, resave
-      ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
+    needSaving = needSaving || GetMissingData(result);
+    if (needSaving) {
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
     }
-*/
     return result;
   } catch (err) {
     if (err.code) debug.log(`Could not load Steam data: ${err.code} - ${err.message}`);
@@ -255,11 +256,11 @@ module.exports.getAchievementsFromFile = async (filePath) => {
     for (let file of files) {
       try {
         if (path.parse(file).ext == '.json') {
-          local = JSON.parse(await ffs.readFile(path.join(filePath, file), 'utf8'));
+          local = JSON.parse(fs.readFileSync(path.join(filePath, file), 'utf8'));
         } else if (file === 'stats.bin') {
-          local = sse.parse(await ffs.readFile(path.join(filePath, file)));
+          local = sse.parse(fs.readFileSync(path.join(filePath, file)));
         } else {
-          local = ini.parse(await ffs.readFile(path.join(filePath, file), 'utf8'));
+          local = ini.parse(fs.readFileSync(path.join(filePath, file), 'utf8'));
         }
         break;
       } catch (e) {}
@@ -365,9 +366,10 @@ module.exports.getAchievementsFromAPI = async (cfg) => {
       } else {
         result = await getSteamUserStatsFromSRV(cfg.user.id, cfg.appID);
       }
-      ffs.writeFile(cache.local, JSON.stringify(result, null, 2)).catch((err) => {});
+      fs.mkdirSync(path.dirname(cache.local), { recursive: true });
+      fs.writeFileSync(cache.local, JSON.stringify(result, null, 2));
     } else {
-      result = JSON.parse(await ffs.readFile(cache.local));
+      result = JSON.parse(fs.readFileSync(cache.local));
     }
 
     return result;
@@ -507,22 +509,22 @@ function getSteamDataFromRemoteSRV(appID, lang) {
 
 async function getSteamDataFromSRV(appID, lang) {
   const { ipcRenderer } = require('electron');
-  const result = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'data' });
-  const icon = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'icon' });
+  const result = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'common' });
+  const achievements = result.isGame ? ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'steamhunters' }).achievements : [];
 
   return {
     name: result.name,
     appid: appID,
     binary: null,
     img: {
-      header: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/header.jpg`,
-      background: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/page_bg_generated_v6b.jpg`,
-      portrait: `https://cdn.akamai.steamstatic.com/steam/apps/${appID}/library_600x900.jpg`,
-      icon,
+      header: result.header || 'header',
+      background: result.background || 'page_bg_generated_v6b',
+      portrait: result.portrait || 'portrait',
+      icon: result.icon,
     },
     achievement: {
-      total: result.achievements.length,
-      list: result.achievements,
+      total: achievements.length,
+      list: achievements,
     },
   };
 }
@@ -628,42 +630,121 @@ async function getDataFromSteamStore(appID) {
 async function findInAppList(appID) {
   if (!appID || !(Number.isInteger(appID) && appID > 0)) throw 'ERR_INVALID_APPID';
 
+  const { ipcRenderer } = require('electron');
   const cache = path.join(cacheRoot, 'steam_cache/schema');
   const filepath = path.join(cache, 'appList.json');
 
-  try {
-    const list = JSON.parse(await ffs.readFile(filepath));
-    const app = list.find((app) => app.appid === appID);
-    if (!app) throw 'ERR_NAME_NOT_FOUND';
-    return app.name;
-  } catch {
-    const url = 'http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json';
-
-    const data = await request.getJson(url, { timeout: 4000 });
-
-    let list = data.applist.apps;
-    list.sort((a, b) => b.appid - a.appid); //recent first
-
-    await ffs.writeFile(filepath, JSON.stringify(list, null, 2));
-
-    const app = list.find((app) => app.appid === appID);
-    if (!app) throw 'ERR_NAME_NOT_FOUND';
-    return app.name;
+  if (appidListMap.size === 0) {
+    let list;
+    if (fs.existsSync(filepath))
+      if (Date.now() - fs.statSync(filepath).mtimeMS < 60 * 60 * 1000 * 24 * 3) {
+        list = JSON.parse(fs.readdirSync(filepath, 'utf-8'));
+      }
+    if (!list) {
+      const url = 'http://api.steampowered.com/ISteamApps/GetAppList/v0002/?format=json';
+      const data = await request.getJson(url, { timeout: 40000 });
+      list = data.applist.apps;
+      fs.mkdirSync(path.dirname(filepath), { recursive: true });
+      fs.writeFileSync(filepath, JSON.stringify(list, null, 2));
+    }
+    appidListMap = new Map(list.map((a) => [a.appid, a]));
   }
+
+  const app = appidListMap.get(appID);
+  if (app) return app.name;
+  const name = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'name' });
+  return name;
+  throw 'ERR_NAME_NOT_FOUND';
+}
+
+const cdnProviders = [
+  'https://cdn.akamai.steamstatic.com/steam/apps/',
+  'https://cdn.cloudflare.steamstatic.com/steam/apps/',
+  'https://media.steampowered.com/steam/apps/',
+  'https://steamcdn-a.akamaihd.net/steam/apps/',
+  'https://shared.fastly.steamstatic.com/steam/apps/',
+  'https://shared.fastly.steamstatic.com/community_assets/images/apps/',
+  'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/',
+  'https://steampipe.akamaized.net/steam/apps/',
+  'https://google2.cdn.steampipe.steamcontent.com/steam/apps/',
+  'https://steamcdn-a.akamaihd.net/steam/apps/',
+  'https://media.steampowered.com/steam/apps/',
+];
+async function findWorkingLink(appid, basename) {
+  for (const ext of ['.jpg', '.png']) {
+    for (const cdn of cdnProviders) {
+      const url = `${cdn}${appid}/${basename}${ext}`;
+      try {
+        const res = await request(url, { method: 'HEAD' });
+        if (res.code === 200) {
+          const contentType = res.headers['content-type'];
+          if (contentType) return url;
+        }
+      } catch (e) {}
+    }
+  }
+  return null;
+}
+
+function GetMissingData(data) {
+  let updated = false;
+  const { ipcRenderer } = require('electron');
+  let updatedImgs, updatedDesc;
+  if (Object.values(data.img).some((im) => !im)) {
+    updated = true;
+    updatedImgs = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'full' });
+    for (let [type, value] of Object.entries(data.img)) {
+      if (!value) data.img[type] = updatedImgs[type];
+    }
+  }
+  if (data.achievement.list.some((ac) => !ac.description || ac.description === '')) {
+    updated = true;
+    const missing = data.achievement.list.filter((ac) => !ac.description || ac.description === '');
+    updatedDesc = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'desc' });
+    const map = new Map(updatedDesc.achievements.map((item) => [item.title, item.desc]));
+    for (let ach of data.achievement.list) {
+      if (!ach.description && (map.has(ach.displayName) || map.has(ach.name))) ach.description = map.get(ach.displayName) || map.get(ach.name);
+    }
+  }
+  return updated;
 }
 
 const fetchIcon = (module.exports.fetchIcon = async (url, appID) => {
   try {
     const cache = path.join(process.env['APPDATA'], `Achievement Watcher/steam_cache/icon/${appID}`);
 
-    const filename = path.parse(urlParser.parse(url).pathname).base;
+    //legacy url are full urls, check if they are still valid
+    let isValid = false;
+    let validUrl = url;
+    try {
+      new URL(url);
+      const res = await request(url, { method: 'HEAD' });
+      isValid = res.code !== 200 ? false : true;
+      isValid = isValid ? res.headers['content-type'] : isValid;
+    } catch (e) {}
+
+    if (!isValid)
+      validUrl = await findWorkingLink(
+        appID,
+        url.startsWith('http')
+          ? url
+              .split('/')
+              .pop()
+              .split('?')[0]
+              .replace(/\.[^.]+$/, '')
+          : url.endsWith('.jpg') || url.endsWith('.png')
+          ? url.slice(0, url.length - 4)
+          : url
+      );
+
+    const filename = path.parse(urlParser.parse(validUrl).pathname).base;
 
     let filePath = path.join(cache, filename);
 
     if (fs.existsSync(filePath)) {
       return filePath;
     } else {
-      return (await request.download(url, cache)).path;
+      return (await request.download(validUrl, cache)).path;
     }
   } catch (err) {
     return url;

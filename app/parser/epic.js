@@ -2,7 +2,6 @@
 
 const path = require('path');
 const fs = require('fs');
-const ffs = require('@xan105/fs');
 const glob = require('fast-glob');
 const request = require('request-zero');
 
@@ -86,7 +85,8 @@ module.exports.scan = async (dir) => {
       game.appid = game.appid;
       data.push(game);
     }
-    ffs.writeFile(cacheFile, JSON.stringify(cache, null, 2));
+    fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
+    fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
     return data;
   } catch (err) {
     throw err;
@@ -103,8 +103,8 @@ module.exports.getGameData = async (cfg) => {
   let filePath = path.join(`${cache}`, `${cfg.appID}.db`);
   let result;
   try {
-    if (await ffs.exists(filePath)) {
-      result = JSON.parse(await ffs.readFile(filePath));
+    if (fs.existsSync(filePath)) {
+      result = JSON.parse(fs.readFileSync(filePath));
       return result;
     }
   } catch (err) {
@@ -112,6 +112,7 @@ module.exports.getGameData = async (cfg) => {
   }
   let list = [];
   let title;
+  let icon;
   try {
     title = await getGameTitleFromMapping(JSON.parse(await getEpicProductMapping())[cfg.appID]);
   } catch (err) {
@@ -142,7 +143,7 @@ module.exports.getGameData = async (cfg) => {
     // probably hidden achievements, lets try to get steam's data
     if (err.code !== 404) debug.log(err);
     if (!cfg.steamappid) return result;
-    const achs = ipcRenderer.sendSync('get-steam-data', { appid: cfg.steamappid, type: 'data' });
+    const achs = ipcRenderer.sendSync('get-steam-data', { appid: cfg.steamappid, type: 'steamhunters' });
     list = achs.achievements;
   }
 
@@ -166,14 +167,15 @@ module.exports.getGameData = async (cfg) => {
     };
     ipcRenderer.send('stylize-background-for-appid', { background: links.background, appid: cfg.appID });
   } else {
+    let imgs = ipcRenderer.sendSync('get-steam-data', { appid: cfg.steamappid, type: 'common' });
     result.img = {
-      header: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.steamappid}/header.jpg`,
-      background: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.steamappid}/page_bg_generated_v6b.jpg`,
-      portrait: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.steamappid}/library_600x900.jpg`,
-      icon: ipcRenderer.sendSync('get-steam-data', { appid: cfg.steamappid, type: 'icon' }),
+      header: imgs.header || 'header',
+      background: imgs.background || 'page_bg_generated_v6b.jpg',
+      portrait: imgs.portrait || 'library_600x900.jpg',
+      icon: imgs.icon,
     };
   }
-
-  ffs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {});
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
   return result;
 };

@@ -8,6 +8,7 @@ function getUserDataPath() {
 }
 const os = require('os');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const args_split = require('argv-split');
 const args = require('minimist');
 const moment = require('moment');
@@ -120,13 +121,6 @@ var app = {
         let progress_cache = [];
 
         for (let game in list) {
-          const g = list[game];
-
-          for (let [type, value] of Object.entries(g.img)) {
-            if (!value) {
-              list[game].img[type] = ipcRenderer.sendSync('get-steam-data', { appid: g.appid, type });
-            }
-          }
           if (list[game].achievement.unlocked > 0 || self.config.achievement.hideZero == false) {
             let progress = Math.round((100 * list[game].achievement.unlocked) / list[game].achievement.total);
 
@@ -144,27 +138,17 @@ var app = {
             let portrait = self.config.achievement.thumbnailPortrait;
 
             portrait ? $('#game-list').addClass('view-portrait') : $('#game-list').removeClass('view-portrait');
-
+            let isPortrait = portrait && list[game].img.portrait;
+            let imgName = isPortrait ? list[game].img.portrait : list[game].img.header;
             let template = `
             <li>
                 <div class="game-box" data-index="${game}" data-appid="${list[game].appid}" data-time="${timeMostRecent > 0 ? timeMostRecent : 0}" ${
               list[game].system ? `data-system="${list[game].system}"` : ''
             }>
                   <div class="loading-overlay"><div class="content"><i class="fas fa-spinner fa-spin"></i></div></div>
-                  ${
-                    portrait && list[game].img.portrait
-                      ? `<div class="header glow" style="background: url('${ipcRenderer.sendSync(
-                          'fetch-icon',
-                          list[game].img.portrait,
-                          list[game].appid
-                        )}');">`
-                      : `<div class="header" style="background: url('${ipcRenderer.sendSync(
-                          'fetch-icon',
-                          list[game].img.header,
-                          list[game].appid
-                        )}');">`
-                  }
-
+                  <div class="header ${isPortrait ? 'glow' : ''}" id="game-header-${list[game].appid}" style="background: url('${
+              pathToFileURL(path.join(appPath, 'resources/img/loading.gif')).href
+            }');">
                   <!-- Play Button -->
                   <div class="play-button"><i class="fas fa-play"></i></div>
                   </div>
@@ -195,6 +179,15 @@ var app = {
             `;
 
             elem.append(template);
+
+            setTimeout(() => {
+              ipcRenderer.invoke('fetch-icon', imgName, list[game].steamappid || list[game].appid).then((localPath) => {
+                if (localPath) {
+                  const el = $(`#game-header-${list[game].appid}`);
+                  el.css('background', `url('${localPath}')`);
+                }
+              });
+            }, 0);
           }
         }
 
@@ -375,7 +368,6 @@ var app = {
                   self.css('pointer-events', 'none');
                   try {
                     const request = require('request-zero');
-                    const ffs = require('@xan105/fs');
 
                     let dialog = await remote.dialog.showSaveDialog(remote.getCurrentWindow(), {
                       title: 'Choose where to generate achievements.json',
@@ -418,7 +410,8 @@ var app = {
                       }
 
                       if (result.length > 0) {
-                        await ffs.writeFile(filePath, JSON.stringify(result, null, 2));
+                        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+                        fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
                       }
                     }
                   } catch (err) {
@@ -434,9 +427,6 @@ var app = {
                 },
               })
             );
-
-            menu.append(new MenuItem({ label: 'Re-Generate database entry' }));
-            //TODO: continue this
 
             menu.append(new MenuItem({ type: 'separator' }));
             menu.append(
@@ -463,24 +453,6 @@ var app = {
                 label: 'PCGamingWiki',
                 click() {
                   remote.shell.openExternal(`https://pcgamingwiki.com/api/appid.php?appid=${appid}`);
-                },
-              })
-            );
-            menu.append(
-              new MenuItem({
-                icon: nativeImage.createFromPath(path.join(appPath, 'resources/img/globe.png')),
-                label: 'API (Achievement schema)',
-                click() {
-                  remote.shell.openExternal(`${app.config.api.serverUrl}/steam/ach/${appid}?lang=${app.config.achievement.lang}`);
-                },
-              })
-            );
-            menu.append(
-              new MenuItem({
-                icon: nativeImage.createFromPath(path.join(appPath, 'resources/img/globe.png')),
-                label: 'API (App info)',
-                click() {
-                  remote.shell.openExternal(`${app.config.api.serverUrl}/v2/steam/appinfo/${appid}`);
                 },
               })
             );
@@ -523,19 +495,16 @@ var app = {
     $('#search-bar-float input[type=search]').val('').blur().removeClass('has'); //reset
 
     $('#home').fadeOut(function () {
+      $('body').fadeIn().css('background', `url('../resources/img/ach_background.jpg')`);
       if (game.img.background) {
-        if (game.system === 'uplay' || game.img?.overlay === true) {
-          let gradient = `linear-gradient(to bottom right, rgba(0, 47, 75, .8), rgba(35, 54, 78, 0.9))`;
-          $('body')
-            .fadeIn()
-            .attr('style', `background: ${gradient}, url('${ipcRenderer.sendSync('fetch-icon', game.img.background, game.appid)}')`);
-        } else {
-          $('body')
-            .fadeIn()
-            .css('background', `url('${ipcRenderer.sendSync('fetch-icon', game.img.background, game.appid)}')`);
-        }
-      } else {
-        $('body').fadeIn().css('background', `url('../resources/img/ach_background.jpg')`);
+        ipcRenderer.invoke('fetch-icon', game.img.background, game.steamappid || game.appid).then((localPath) => {
+          if (game.system === 'uplay' || game.img?.overlay === true) {
+            let gradient = `linear-gradient(to bottom right, rgba(0, 47, 75, .8), rgba(35, 54, 78, 0.9))`;
+            $('body').fadeIn().attr('style', `background: ${gradient}, url('${localPath}')`);
+          } else {
+            $('body').fadeIn().css('background', `url('${localPath}')`);
+          }
+        });
       }
 
       if (game.system) {
@@ -545,7 +514,11 @@ var app = {
       }
 
       if (game.img.icon) {
-        $('#achievement .wrapper > .header .title .icon').css('background', `url('${game.img.icon}')`);
+        const iconEl = $('#achievement .wrapper > .header .title .icon');
+        iconEl.css('background', `url('${pathToFileURL(path.join(appPath, 'resources/img/loading.gif')).href}')`);
+        ipcRenderer.invoke('fetch-icon', game.img.icon, game.steamappid || game.appid).then((localPath) => {
+          if (localPath) iconEl.css('background', `url('${localPath}')`);
+        });
       }
 
       $('#achievement .wrapper > .header .title span').text(game.name);
@@ -628,7 +601,11 @@ var app = {
                                     <div class="glow fx"></div>
                                   </div>
                               </div>
-                              <div class="icon" style="background: url('${achievement.Achieved ? achievement.icon : achievement.icongray}');"></div>
+                              <div class="icon" id="achievement-${achievement.name
+                                .replace(/\s+/g, '_')
+                                .replace(/[^\w\-]/g, '')}" style="background: url('${
+          pathToFileURL(path.join(appPath, 'resources/img/loading.gif')).href
+        }');"></div>
                             </div>
                             <div class="content">
                                 <div class="title">${
@@ -673,6 +650,33 @@ var app = {
           }
         }
       }
+
+      function setAchievementImage(selector, imagePath) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            $(selector).css('background', `url(${imagePath})`);
+            resolve();
+          };
+          img.onerror = () => {
+            resolve();
+          };
+          img.src = imagePath;
+        });
+      }
+      const imageCache = new Map(); // hash -> promise
+      const preloadPromises = game.achievement.list.map(async (achievement) => {
+        const hash = achievement.Achieved ? achievement.icon : achievement.icongray;
+        let localPathPromise;
+        if (imageCache.has(hash)) {
+          localPathPromise = imageCache.get(hash);
+        } else {
+          localPathPromise = ipcRenderer.invoke('fetch-icon', hash, game.steamappid || game.appid);
+          imageCache.set(hash, localPathPromise);
+        }
+        const localPath = await localPathPromise;
+        await setAchievementImage(`#achievement-${achievement.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '')}`, localPath);
+      });
 
       if ($('#unlock > .header .sort-ach .sort.time').hasClass('show') && localStorage.sortAchByTime === 'true') {
         $('#unlock > .header .sort-ach .sort.time').trigger('click');

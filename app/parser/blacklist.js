@@ -2,7 +2,8 @@
 
 const path = require('path');
 const request = require('request-zero');
-const ffs = require('@xan105/fs');
+// const ffs = require('@xan105/fs');
+const fs = require('fs');
 const settingsJS = require(path.join(__dirname, '../settings.js'));
 const configJS = settingsJS.load();
 
@@ -37,7 +38,7 @@ module.exports.get = async () => {
   }
 
   try {
-    let userExclusion = JSON.parse(await ffs.readFile(exclusionFile, 'utf8'));
+    let userExclusion = JSON.parse(fs.readFileSync(exclusionFile, 'utf8'));
     exclude = [...new Set([...exclude, ...userExclusion])];
   } catch (err) {
     //Do nothing
@@ -47,7 +48,8 @@ module.exports.get = async () => {
 };
 
 module.exports.reset = async () => {
-  await ffs.writeFile(exclusionFile, JSON.stringify([], null, 2), 'utf8');
+  fs.mkdirSync(path.dirname(exclusionFile), { recursive: true });
+  fs.writeFileSync(exclusionFile, JSON.stringify([], null, 2), 'utf8');
 };
 
 module.exports.add = async (appid) => {
@@ -57,14 +59,15 @@ module.exports.add = async (appid) => {
     let userExclusion;
 
     try {
-      userExclusion = JSON.parse(await ffs.readFile(exclusionFile, 'utf8'));
+      userExclusion = JSON.parse(fs.readFileSync(exclusionFile, 'utf8'));
     } catch (e) {
       userExclusion = [];
     }
 
     if (!userExclusion.includes(appid)) {
       userExclusion.push(appid);
-      await ffs.writeFile(exclusionFile, JSON.stringify(userExclusion, null, 2), 'utf8');
+      fs.mkdirSync(path.dirname(exclusionFile), { recursive: true });
+      fs.writeFileSync(exclusionFile, JSON.stringify(userExclusion, null, 2), 'utf8');
       debug.log('Done.');
     } else {
       debug.log('Already blacklisted.');

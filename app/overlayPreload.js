@@ -43,7 +43,6 @@ contextBridge.exposeInMainWorld('api', {
   updateConfig: (configData) => ipcRenderer.send('update-config', configData),
   toggleOverlay: (selectedConfig) => ipcRenderer.send('toggle-overlay', selectedConfig),
   onOverlay: (callback) => ipcRenderer.on('show-overlay', (event, config) => callback(config)),
-  onSetLanguage: (callback) => ipcRenderer.on('set-language', (event, lang) => callback(lang)),
 
   // Other functionalities
   savePreferences: (prefs) => ipcRenderer.invoke('save-preferences', prefs),
@@ -83,6 +82,10 @@ contextBridge.exposeInMainWorld('api', {
     const screenshot = sources[0].thumbnail.toPNG();
     const base64 = screenshot.toString('base64');
     ipcRenderer.send('capture-screen', { image: base64 });
+  },
+  fetchIcon: async (icon, appid) => {
+    const p = await ipcRenderer.invoke('fetch-icon', icon, appid);
+    return p;
   },
 
   // language

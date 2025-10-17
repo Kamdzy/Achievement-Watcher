@@ -5,7 +5,6 @@ const path = require('path');
 const ini = require('@xan105/ini');
 const fs = require('fs');
 const os = require('os');
-const ffs = require('@xan105/fs');
 const aes = require(path.join(appPath, 'util/aes.js'));
 const steamLanguages = require(path.join(appPath, 'locale/steam.json'));
 
@@ -370,8 +369,8 @@ module.exports.load = () => {
     } catch (err) {
       options.achievement.lang = 'english';
     }
-
-    ffs.writeFile(filename, ini.stringify(options), 'utf8').catch(() => {});
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+    fs.writeFileSync(filename, ini.stringify(options), 'utf8');
   }
 
   return options;
@@ -391,7 +390,8 @@ module.exports.save = (config) => {
     } catch (err) {
       return reject(err);
     }
-
-    return resolve(ffs.writeFile(filename, ini.stringify(options), 'utf8'));
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+    fs.writeFileSync(filename, ini.stringify(options), 'utf8');
+    return resolve();
   });
 };
