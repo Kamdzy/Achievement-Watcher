@@ -49,6 +49,7 @@ jobs:
         working-directory: app
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          PUPPETEER_SKIP_DOWNLOAD: false
         run: |
           REM Initialize VS environment for node-gyp
           for /f "usebackq tokens=*" %%i in (`vswhere.exe -latest -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
@@ -62,9 +63,12 @@ jobs:
           REM Force node-gyp to use VS2022
           npm config set msvs_version 2022
 
-          REM Install dependencies and apply patches
-          npm ci
+          REM Install dependencies (production + dev for build tools)
+          npm ci --no-optional
           npx patch-package
+
+          REM Ensure puppeteer chromium is downloaded
+          node -e "require('puppeteer')"
 
           REM Rebuild native modules for Electron
           npx electron-rebuild --force --debug
