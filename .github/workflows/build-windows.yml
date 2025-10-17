@@ -3,7 +3,7 @@ name: Build Windows Installer and Release
 on:
   push:
     tags:
-      - 'v*' # Trigger on version tags like v1.0.0
+      - 'v*' # Trigger on version tags like v1.0.0 -
   workflow_dispatch:
 
 jobs:
