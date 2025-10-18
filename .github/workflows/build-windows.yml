@@ -84,7 +84,20 @@ jobs:
           echo VS Installation Path: %VS_PATH%
           
           REM Initialize VS environment for Windows SDK
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 (
+            echo ERROR: Failed to initialize VS environment
+            exit /b 1
+          )
+          
+          REM Set Windows SDK paths for WinRT components
+          for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul`) do set "WINMD_PATH=%%~dpi"
+          if not defined WINMD_PATH (
+            echo ERROR: Could not find Windows SDK platform.winmd
+            exit /b 1
+          )
+          echo Windows SDK Path: %WINMD_PATH%
+          set "LIBPATH=%WINMD_PATH%;%LIBPATH%"
           
           REM Set npm config for VS
           call npm config set msvs_version 2022
