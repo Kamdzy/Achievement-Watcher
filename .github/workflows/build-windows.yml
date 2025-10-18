@@ -173,6 +173,9 @@ jobs:
           REM The UnionMetadata folder contains both platform.winmd and Windows.winmd
           set "CL=/AI"%SDK_PLATFORM%""
           if defined SDK_REFERENCES set "CL=%CL% /AI"%SDK_REFERENCES%""
+          if defined SDK_WINDOWS set "CL=%CL% /AI"%SDK_WINDOWS%""
+          
+          echo CL flags: %CL%
           
           REM Install dependencies
           call npm install --production
