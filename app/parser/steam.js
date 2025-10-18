@@ -19,7 +19,6 @@ const sse = require(path.join(appPath, 'parser/sse.js'));
 const htmlParser = require('node-html-parser');
 const fs = require('fs');
 const settingsJS = require(path.join(__dirname, '../settings.js'));
-const configJS = settingsJS.load();
 const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
@@ -27,12 +26,23 @@ client.logOn({ anonymous: true });
 let appidListMap = new Map();
 let debug;
 let cacheRoot;
+let configJS;
+
+function getConfig() {
+  if (!configJS) {
+    configJS = settingsJS.load();
+  }
+  return configJS;
+}
+
 module.exports.setUserDataPath = (p) => {
   cacheRoot = p;
+  settingsJS.setUserDataPath(p);
 };
 
 module.exports.initDebug = ({ isDev, userDataPath }) => {
   this.setUserDataPath(userDataPath);
+  configJS = settingsJS.load();
   debug = new (require('@xan105/log'))({
     console: isDev || false,
     file: path.join(userDataPath, 'logs/parser.log'),
@@ -214,7 +224,7 @@ module.exports.getGameData = async (cfg) => {
       if (cfg.key) {
         result = await getSteamData(cfg);
       } else {
-        if(configJS.api.useRemoteServer) {
+        if(getConfig().api.useRemoteServer) {
           result = await getSteamDataFromRemoteSRV(cfg.appID, cfg.lang);
         } else {
           result = await getSteamDataFromSRV(cfg.appID, cfg.lang);
@@ -449,7 +459,7 @@ const getSteamUsersList = (module.exports.getSteamUsersList = async () => {
 });
 
 function getSteamUserStatsFromSRV(user, appID) {
-  const url = `${configJS.api.serverUrl}/steam/user/${user}/stats/${appID}`;
+  const url = `${getConfig().api.serverUrl}/steam/user/${user}/stats/${appID}`;
 
   return new Promise((resolve, reject) => {
     request
@@ -481,7 +491,7 @@ async function getSteamUserStats(cfg) {
 }
 
 function getSteamDataFromRemoteSRV(appID, lang) {
-  const url = `${configJS.api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
+  const url = `${getConfig().api.serverUrl}/steam/ach/${appID}?lang=${lang}`;
 
   return new Promise((resolve, reject) => {
     request
