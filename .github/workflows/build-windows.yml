@@ -90,7 +90,7 @@ jobs:
             exit /b 1
           )
           
-          REM Find Windows SDK UniversalApiContract path (for References)
+          REM Find Windows SDK References path
           set "SDK_BASE=C:\Program Files (x86)\Windows Kits\10"
           if exist "%SDK_BASE%\References" (
             for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\References" 2^>nul') do (
@@ -102,8 +102,8 @@ jobs:
           )
           :found_references
           
-          REM Find platform.winmd - try multiple locations
-          REM 1. Try Windows SDK UnionMetadata
+          REM Find platform.winmd and Windows.winmd in UnionMetadata
+          REM Both files are in the same directory
           if exist "%SDK_BASE%\UnionMetadata" (
             for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\UnionMetadata" 2^>nul') do (
               if exist "%SDK_BASE%\UnionMetadata\%%i\platform.winmd" (
@@ -130,7 +130,7 @@ jobs:
           )
           :found_platform
           
-          REM Check if we found the platform path (References is optional but helpful)
+          REM Check if we found the platform path
           if not defined SDK_PLATFORM (
             echo ERROR: Could not find platform.winmd in Windows SDK or VS installation
             exit /b 1
@@ -140,11 +140,9 @@ jobs:
           if defined SDK_REFERENCES echo Windows SDK References: %SDK_REFERENCES%
           
           REM Set LIBPATH to include SDK paths
-          if defined SDK_REFERENCES (
-            set "LIBPATH=%SDK_PLATFORM%;%SDK_REFERENCES%;%LIBPATH%"
-          ) else (
-            set "LIBPATH=%SDK_PLATFORM%;%LIBPATH%"
-          )
+          set "SDK_PATHS=%SDK_PLATFORM%"
+          if defined SDK_REFERENCES set "SDK_PATHS=%SDK_PATHS%;%SDK_REFERENCES%"
+          set "LIBPATH=%SDK_PATHS%;%LIBPATH%"
           
           REM Set npm config for VS
           call npm config set msvs_version 2022
@@ -155,12 +153,13 @@ jobs:
           set "GYP_DEFINES=target_arch=x64"
           
           REM Set additional include paths for C++/CX compilation
-          set "INCLUDE=%SDK_PLATFORM%;%SDK_REFERENCES%;%INCLUDE%"
-          set "LIB=%SDK_PLATFORM%;%SDK_REFERENCES%;%LIB%"
+          set "INCLUDE=%SDK_PATHS%;%INCLUDE%"
+          set "LIB=%SDK_PATHS%;%LIB%"
           
-          REM Create msbuild.rsp file to pass /AI flag to all nodert compilations
-          echo /p:AdditionalUsingDirectories="%SDK_PLATFORM%;%SDK_REFERENCES%" > "%TEMP%\nodert_msbuild.rsp"
-          set "CL=/AI"%SDK_PLATFORM%" /AI"%SDK_REFERENCES%""
+          REM Set CL environment variable to pass /AI flags for all WinMD paths
+          REM The UnionMetadata folder contains both platform.winmd and Windows.winmd
+          set "CL=/AI"%SDK_PLATFORM%""
+          if defined SDK_REFERENCES set "CL=%CL% /AI"%SDK_REFERENCES%""
           
           REM Install dependencies
           call npm install --production
