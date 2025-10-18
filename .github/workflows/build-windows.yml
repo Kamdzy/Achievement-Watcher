@@ -122,11 +122,22 @@ jobs:
               set "SDK_PLATFORM=%VS_PATH%\Common7\IDE\VC\vcpackages"
               
               REM Also need to find Windows.winmd separately if using vcpackages
-              for /f "usebackq tokens=*" %%i in (`dir /b /s "%SDK_BASE%\Windows.winmd" 2^>nul ^| findstr /i "UnionMetadata" ^| sort /r`) do (
-                set "SDK_WINDOWS=%%~dpi"
+              echo Searching for Windows.winmd in %SDK_BASE%...
+              for /f "usebackq delims=" %%i in (`dir /b /s "%SDK_BASE%\Windows.winmd" 2^>nul ^| findstr /i "UnionMetadata" ^| sort /r`) do (
+                echo Found Windows.winmd at: %%i
+                for %%p in ("%%i\..") do (
+                  echo Extracting parent directory...
+                  set "SDK_WINDOWS=%%~fp"
+                  echo SDK_WINDOWS set to: !SDK_WINDOWS!
+                )
                 goto :found_windows_separately
               )
               :found_windows_separately
+              if defined SDK_WINDOWS (
+                echo Successfully extracted Windows.winmd directory
+              ) else (
+                echo WARNING: Could not find Windows.winmd in UnionMetadata
+              )
               
               goto :found_platform
             )
