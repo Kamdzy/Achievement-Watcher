@@ -90,27 +90,61 @@ jobs:
             exit /b 1
           )
           
-          REM Find Windows SDK path (usually in C:\Program Files (x86)\Windows Kits\10)
+          REM Find Windows SDK UniversalApiContract path (for References)
           set "SDK_BASE=C:\Program Files (x86)\Windows Kits\10"
-          if exist "%SDK_BASE%" (
-            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\References"') do (
+          if exist "%SDK_BASE%\References" (
+            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\References" 2^>nul') do (
               if exist "%SDK_BASE%\References\%%i\Windows.Foundation.UniversalApiContract" (
-                set "WINMD_PATH=%SDK_BASE%\References\%%i"
-                goto :found_sdk
+                set "SDK_REFERENCES=%SDK_BASE%\References\%%i"
+                goto :found_references
+              )
+            )
+          )
+          :found_references
+          
+          REM Find platform.winmd - try multiple locations
+          REM 1. Try Windows SDK UnionMetadata
+          if exist "%SDK_BASE%\UnionMetadata" (
+            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\UnionMetadata" 2^>nul') do (
+              if exist "%SDK_BASE%\UnionMetadata\%%i\platform.winmd" (
+                set "SDK_PLATFORM=%SDK_BASE%\UnionMetadata\%%i"
+                goto :found_platform
               )
             )
           )
           
-          REM Fallback: search in VS installation
-          for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul`) do set "WINMD_PATH=%%~dpi"
+          REM 2. Try VS installation Common7\IDE\VC\vcpackages
+          if not defined SDK_PLATFORM (
+            if exist "%VS_PATH%\Common7\IDE\VC\vcpackages\platform.winmd" (
+              set "SDK_PLATFORM=%VS_PATH%\Common7\IDE\VC\vcpackages"
+              goto :found_platform
+            )
+          )
           
-          :found_sdk
-          if not defined WINMD_PATH (
-            echo ERROR: Could not find Windows SDK platform.winmd
+          REM 3. Try VS Tools MSVC lib\x64\store\references
+          if not defined SDK_PLATFORM (
+            for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul ^| sort /r`) do (
+              set "SDK_PLATFORM=%%~dpi"
+              goto :found_platform
+            )
+          )
+          :found_platform
+          
+          REM Check if we found the platform path (References is optional but helpful)
+          if not defined SDK_PLATFORM (
+            echo ERROR: Could not find platform.winmd in Windows SDK or VS installation
             exit /b 1
           )
-          echo Windows SDK Path: %WINMD_PATH%
-          set "LIBPATH=%WINMD_PATH%;%LIBPATH%"
+          
+          echo Windows SDK Platform: %SDK_PLATFORM%
+          if defined SDK_REFERENCES echo Windows SDK References: %SDK_REFERENCES%
+          
+          REM Set LIBPATH to include SDK paths
+          if defined SDK_REFERENCES (
+            set "LIBPATH=%SDK_PLATFORM%;%SDK_REFERENCES%;%LIBPATH%"
+          ) else (
+            set "LIBPATH=%SDK_PLATFORM%;%LIBPATH%"
+          )
           
           REM Set npm config for VS
           call npm config set msvs_version 2022
