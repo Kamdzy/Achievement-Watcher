@@ -72,6 +72,11 @@ jobs:
         working-directory: app
         run: node -e "console.log('Puppeteer path:', require.resolve('puppeteer')); const puppeteer = require('puppeteer'); console.log('Puppeteer loaded successfully');"
 
+      # 9b. Install watchdog dependencies
+      - name: Install watchdog service dependencies
+        working-directory: service/watchdog
+        run: npm ci --production
+
       # 10. Rebuild native modules
       - name: Rebuild Native Modules
         working-directory: app
