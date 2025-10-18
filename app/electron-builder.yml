@@ -27,8 +27,12 @@ directories:
 
 asar: false
 
+# Tell electron-builder to not manage node_modules itself
+npmRebuild: false
+
 files:
   - '**/*'
+  - 'node_modules/**/*'
   - '!**/*.map'
   - '!dist/**'
   - '!buildme.cmd'
