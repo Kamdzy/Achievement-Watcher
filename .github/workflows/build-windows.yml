@@ -43,47 +43,58 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.1
 
-      # 6. Setup Visual Studio environment and rebuild all native modules
-      - name: Build Electron App (dependencies + native rebuild)
+      # 6. Setup Visual Studio environment
+      - name: Setup VS Build Environment
         shell: cmd
-        working-directory: app
-        env:
-          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
-          PUPPETEER_SKIP_DOWNLOAD: false
         run: |
-          REM Initialize VS environment for node-gyp
           for /f "usebackq tokens=*" %%i in (`vswhere.exe -latest -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
             call "%%i\VC\Auxiliary\Build\vcvars64.bat"
           )
 
-          REM Install latest node-gyp globally and point npm to it
+      # 7. Install node-gyp
+      - name: Install node-gyp
+        run: |
           npm install --global node-gyp@9.4.1
-          for /f %P in ('npm prefix -g') do npm config set node_gyp "%P\node_modules\node-gyp\bin\node-gyp.js"
-
-          REM Force node-gyp to use VS2022
+          npm config set node_gyp "$(npm prefix -g)\node_modules\node-gyp\bin\node-gyp.js"
           npm config set msvs_version 2022
 
-          REM Install dependencies (production + dev for build tools)
+      # 8. Install dependencies
+      - name: Install dependencies
+        working-directory: app
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: false
+        run: |
           npm ci --no-optional
           npx patch-package
 
-          REM Ensure puppeteer chromium is downloaded
-          node -e "require('puppeteer')"
+      # 9. Verify puppeteer
+      - name: Verify Puppeteer Installation
+        working-directory: app
+        run: node -e "console.log('Puppeteer path:', require.resolve('puppeteer')); const puppeteer = require('puppeteer'); console.log('Puppeteer loaded successfully');"
 
-          REM Rebuild native modules for Electron
+      # 10. Rebuild native modules
+      - name: Rebuild Native Modules
+        working-directory: app
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`vswhere.exe -latest -products * -requires Microsoft.Component.MSBuild -property installationPath`) do (
+            call "%%i\VC\Auxiliary\Build\vcvars64.bat"
+          )
           npx electron-rebuild --force --debug
 
-      # 7. Cache Electron headers
+      # 11. Cache Electron headers
       - name: Cache Electron headers
         uses: actions/cache@v4
         with:
           path: ~/.electron
           key: electron-headers-${{ runner.os }}-12.2.3
 
-      # 8. Build Windows installer
+      # 12. Build Windows installer
       - name: Build installer
         working-directory: app
-        run: npx electron-builder --windows --publish never
+        env:
+          DEBUG: electron-builder
+        run: npx electron-builder --windows --publish never --verbose
 
       - name: Get version from package.json
         id: get_version
@@ -92,7 +103,7 @@ jobs:
           $pkg = Get-Content -Raw app\package.json | ConvertFrom-Json
           Write-Output "version=$($pkg.version)" >> $env:GITHUB_ENV
 
-      # 9. Create GitHub Release
+      # 13. Create GitHub Release
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
@@ -104,7 +115,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
 
-      # 10. Upload installer to release
+      # 14. Upload installer to release
       - name: Upload installer
         uses: actions/upload-release-asset@v1
         env:
@@ -115,7 +126,7 @@ jobs:
           asset_name: Achievement.Watcher.Setup.${{ env.version }}.exe
           asset_content_type: application/octet-stream
 
-      # 11. Upload latest.yml
+      # 15. Upload latest.yml
       - name: Upload latest.yml
         uses: actions/upload-release-asset@v1
         env:
@@ -126,7 +137,7 @@ jobs:
           asset_name: latest.yml
           asset_content_type: application/octet-stream
 
-      # 12. Upload blockmap
+      # 16. Upload blockmap
       - name: Upload blockmap
         uses: actions/upload-release-asset@v1
         env:
