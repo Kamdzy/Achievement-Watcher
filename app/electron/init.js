@@ -90,7 +90,7 @@ async function getSteamData(appid, type) {
   try {
     if (type === 'data') {
       let info = { appid };
-      await scrapeWithPuppeteer(info);
+      await scrapeWithPuppeteer(info, { steamhunters: true });
       while (!info.achievements) {
         await delay(500);
       }
@@ -107,25 +107,25 @@ async function getSteamData(appid, type) {
     switch (type) {
       case 'name':
         return appInfo?.common?.name;
-      case 'common':
-        return {
-          name: appInfo.common.name,
-          isGame: appInfo.common.type.toLowerCase() === 'game',
-          icon: appInfo.common.icon,
-          header: appInfo.common.header_image?.english || appInfo.common.library_assets_full?.library_header?.image?.english,
-          portrait: appInfo.common.library_assets_full?.library_capsule?.image?.english,
-        };
+
       case 'header':
         return appInfo.common.header_image.english || appInfo.common.library_assets_full?.library_header?.image?.english;
       case 'icon':
         return appInfo.common.icon;
       case 'portrait':
         return appInfo.common.library_assets_full?.library_capsule?.image?.english;
-      case 'full':
-        return apps;
+      default:
+      case 'common':
+        return {
+          name: appInfo.common.name,
+          isGame: appInfo?.common?.type?.toLowerCase() === 'game',
+          icon: appInfo.common.icon,
+          header: appInfo.common.header_image?.english || appInfo.common.library_assets_full?.library_header?.image?.english,
+          portrait: appInfo.common.library_assets_full?.library_capsule?.image?.english,
+        };
     }
 
-    await delay(10000);
+    await delay(1000);
   } catch (err) {
     console.log(err);
   }
@@ -262,17 +262,23 @@ ipcMain.on('get-images-for-game', async (event, arg) => {
 
     const gameId = game.id;
 
-    const [iconsRes, gridsRes, heroesRes] = await Promise.all([
+    const [iconsRes, gridsRes, heroesRes, logosRes] = await Promise.all([
       fetch(`${BASE_URL}/icons/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
       fetch(`${BASE_URL}/grids/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
       fetch(`${BASE_URL}/heroes/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
+      fetch(`${BASE_URL}/logos/game/${gameId}`, { headers: { Authorization: `Bearer ${API_KEY}` } }),
     ]);
 
-    const [icons, grids, heroes] = await Promise.all([iconsRes.json(), gridsRes.json(), heroesRes.json()]);
+    const [icons, grids, heroes, logos] = await Promise.all([iconsRes.json(), gridsRes.json(), heroesRes.json(), logosRes.json()]);
 
     const portrait = grids.data.find((g) => g.width === 600 && g.height === 900);
     const landscape = grids.data.find((g) => g.width === 920 && g.height === 430);
-    const links = { icon: icons.data?.[0]?.url, background: heroes.data?.[0]?.url, portrait: portrait?.url, landscape: landscape?.url };
+    const links = {
+      icon: icons.data?.[0]?.url || logos.data?.[0]?.url,
+      background: heroes.data?.[0]?.url,
+      portrait: portrait?.url,
+      landscape: landscape?.url,
+    };
     event.returnValue = links;
   } catch (err) {
     console.error('❌ Error:', err.message);
@@ -383,25 +389,28 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
     if (!puppeteerWindow.browser)
       puppeteerWindow.browser = await puppeteer.launch({
         headless: alternate && alternate.steamhunters ? 'new' : false,
-        executablePath: chromePath || puppeteer.executablePath(),
+        executablePath: fs.existsSync(chromePath) ? chromePath : puppeteerCore.executablePath(),
       });
     if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
-    if (!puppeteerWindow.page) puppeteerWindow.page = await puppeteerWindow.context.newPage();
-    //if (info.achievements) return;
+    if (!puppeteerWindow.page) {
+      puppeteerWindow.page = await puppeteerWindow.context.newPage();
+      const page = puppeteerWindow.page;
+      await page.setRequestInterception(true);
+      page.on('request', (req) => {
+        const type = req.resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
+          req.abort();
+        } else {
+          req.continue();
+        }
+      });
+    }
     if (alternate) {
       if (alternate.steamhunters) {
+        let start = Date.now();
         const url = `https://steamhunters.com/apps/${info.appid}/achievements?group=&sort=name`;
         const page = puppeteerWindow.page;
         try {
-          await page.setRequestInterception(true);
-          page.on('request', (req) => {
-            const type = req.resourceType();
-            if (['image', 'stylesheet', 'font', 'media'].includes(type)) {
-              req.abort();
-            } else {
-              req.continue();
-            }
-          });
           await page.goto(url);
           await page.waitForFunction(() => {
             return Array.from(document.querySelectorAll('script')).some((s) => s.textContent.includes('var sh'));
@@ -426,6 +435,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
             });
           });
           info.achievements = results;
+          debug.log(`[${info.appid}] steamhunters took ${(Date.now() - start) / 1000}s`);
         } catch (e) {
           console.log(e);
         }
@@ -1293,6 +1303,12 @@ function checkResources() {
     copyFolderRecursive(profile, path.join(app.getPath('appData'), 'obs-studio', 'basic', 'profiles', 'AW'));
     fs.copyFileSync(path.join(resourcesPath, 'obs', 'AW.json'), path.join(app.getPath('appData'), 'obs-studio', 'basic', 'scenes', 'AW.json'));
   }
+
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: path.join(manifest.config.debug ? path.join(__dirname, '../../service/') : path.dirname(process.execPath), 'nw/nw.exe'),
+    args: ['-config', 'watchdog.json'],
+  });
 }
 
 try {

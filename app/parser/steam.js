@@ -420,7 +420,7 @@ const getSteamUsers = (module.exports.getSteamUsers = async (steamPath) => {
   let result = [];
 
   let users = listRegistryAllSubkeys('HKCU', 'Software/Valve/Steam/Users');
-  if (!users) users = await glob('*([0-9])', { cwd: path.join(steamPath, 'userdata'), onlyDirectories: true, absolute: false });
+  if (!users || users.length == 0) users = await glob('*([0-9])', { cwd: path.join(steamPath, 'userdata'), onlyDirectories: true, absolute: false });
 
   if (users.length == 0) throw 'No Steam User ID found';
   for (let user of users) {
@@ -698,23 +698,28 @@ async function findWorkingLink(appid, basename) {
 
 function GetMissingData(data) {
   let updated = false;
-  const { ipcRenderer } = require('electron');
-  let updatedImgs, updatedDesc;
-  if (Object.values(data.img).some((im) => !im)) {
-    updated = true;
-    updatedImgs = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'full' });
-    for (let [type, value] of Object.entries(data.img)) {
-      if (!value) data.img[type] = updatedImgs[type];
+  try {
+    const { ipcRenderer } = require('electron');
+    let updatedImgs, updatedDesc;
+    if (Object.values(data.img).some((im) => !im)) {
+      updated = true;
+      updatedImgs = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'common' });
+      data.img.header = data.img.header || updatedImgs.header || 'header';
+      data.img.background = data.img.background || updatedImgs.background || 'page_bg_generated_v6b';
+      data.img.portrait = data.img.portrait || updatedImgs.portrait || 'portrait';
+      data.img.icon = data.img.icon || updatedImgs.icon;
     }
-  }
-  if (data.achievement.list.some((ac) => !ac.description || ac.description === '')) {
-    updated = true;
-    const missing = data.achievement.list.filter((ac) => !ac.description || ac.description === '');
-    updatedDesc = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'desc' });
-    const map = new Map(updatedDesc.achievements.map((item) => [item.title, item.desc]));
-    for (let ach of data.achievement.list) {
-      if (!ach.description && (map.has(ach.displayName) || map.has(ach.name))) ach.description = map.get(ach.displayName) || map.get(ach.name);
+    if (data.achievement.list.some((ac) => !ac.description || ac.description === '')) {
+      updated = true;
+      const missing = data.achievement.list.filter((ac) => !ac.description || ac.description === '');
+      updatedDesc = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'steamhunters' });
+      const map = new Map(updatedDesc.achievements.map((item) => [item.title, item.desc]));
+      for (let ach of data.achievement.list) {
+        if (!ach.description && (map.has(ach.displayName) || map.has(ach.name))) ach.description = map.get(ach.displayName) || map.get(ach.name);
+      }
     }
+  } catch (e) {
+    debug.log(e);
   }
   return updated;
 }
