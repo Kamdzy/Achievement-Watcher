@@ -5,12 +5,22 @@ const request = require('request-zero');
 // const ffs = require('@xan105/fs');
 const fs = require('fs');
 const settingsJS = require(path.join(__dirname, '../settings.js'));
-const configJS = settingsJS.load();
 
 let debug;
 let exclusionFile;
+let configJS;
+
+function getConfig() {
+  if (!configJS) {
+    configJS = settingsJS.load();
+  }
+  return configJS;
+}
+
 module.exports.initDebug = ({ isDev, userDataPath }) => {
   exclusionFile = path.join(userDataPath, 'cfg/exclusion.db');
+  settingsJS.setUserDataPath(userDataPath);
+  configJS = settingsJS.load();
   debug = new (require('@xan105/log'))({
     console: isDev || false,
     file: path.join(userDataPath, 'logs/blacklist.log'),
@@ -18,7 +28,7 @@ module.exports.initDebug = ({ isDev, userDataPath }) => {
 };
 
 module.exports.get = async () => {
-  const url = `${configJS.api.serverUrl}/steam/getBogusList`;
+  const url = `${getConfig().api.serverUrl}/steam/getBogusList`;
   //TODO: replace this url with the full apilist of dlc/music/demo/etc
 
   let exclude = [

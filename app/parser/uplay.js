@@ -9,10 +9,20 @@ const { listRegistryAllSubkeys, readRegistryString, readRegistryInteger } = requ
 const request = require('request-zero');
 const steamLanguages = require(path.join(__dirname, '../locale/steam.json'));
 const settingsJS = require(path.join(__dirname, '../settings.js'));
-const configJS = settingsJS.load();
 
 let debug;
+let configJS;
+
+function getConfig() {
+  if (!configJS) {
+    configJS = settingsJS.load();
+  }
+  return configJS;
+}
+
 module.exports.initDebug = ({ isDev, userDataPath }) => {
+  settingsJS.setUserDataPath(userDataPath);
+  configJS = settingsJS.load();
   debug = new (require('@xan105/log'))({
     console: remote.getCurrentWindow().isDev || false,
     file: path.join(userDataPath, 'logs/uplay.log'),
@@ -270,7 +280,7 @@ async function generateSchemaFromLocalCache(appid, uplayPath) {
 }
 
 function getUplayDataFromSRV(appID, lang = null) {
-  const url = lang ? `${configJS.api.serverUrl}/uplay/ach/${appID}?lang=${lang}` : `${configJS.api.serverUrl}/uplay/ach/${appID}`;
+  const url = lang ? `${getConfig().api.serverUrl}/uplay/ach/${appID}?lang=${lang}` : `${getConfig().api.serverUrl}/uplay/ach/${appID}`;
 
   return new Promise((resolve, reject) => {
     request
@@ -291,7 +301,7 @@ function getUplayDataFromSRV(appID, lang = null) {
 }
 
 async function shareCache(schema) {
-  const url = `${configJS.api.serverUrl}/uplay/share/`;
+  const url = `${getConfig().api.serverUrl}/uplay/share/`;
 
   try {
     let appid = schema.appid.replace('UPLAY', '');
