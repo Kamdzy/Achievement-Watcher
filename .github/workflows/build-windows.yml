@@ -75,123 +75,267 @@ jobs:
       # 9b. Install watchdog service dependencies
       - name: Install watchdog service dependencies
         working-directory: service/watchdog
-        shell: cmd
+        shell: pwsh
         run: |
-          echo Installing watchdog service dependencies...
+          Write-Host "Installing watchdog service dependencies..."
           
-          REM Set VS path for node-gyp  
-          for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
-          echo VS Installation Path: %VS_PATH%
+          # Get VS path
+          $vsPath = & vswhere.exe -latest -property installationPath
+          Write-Host "VS Installation Path: $vsPath"
           
-          REM Initialize VS environment for Windows SDK
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          if errorlevel 1 (
-            echo ERROR: Failed to initialize VS environment
-            exit /b 1
-          )
+          # Initialize VS environment
+          $vcvarsPath = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+          Write-Host "Initializing VS environment..."
           
-          REM Find Windows SDK References path
-          set "SDK_BASE=C:\Program Files (x86)\Windows Kits\10"
-          if exist "%SDK_BASE%\References" (
-            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\References" 2^>nul') do (
-              if exist "%SDK_BASE%\References\%%i\Windows.Foundation.UniversalApiContract" (
-                set "SDK_REFERENCES=%SDK_BASE%\References\%%i"
-                goto :found_references
-              )
-            )
-          )
-          :found_references
+          # Find Windows SDK paths
+          $sdkBase = "C:\Program Files (x86)\Windows Kits\10"
+          $sdkPlatform = $null
+          $sdkReferences = $null
+          $sdkWindows = $null
           
-          REM Find platform.winmd and Windows.winmd in UnionMetadata
-          REM Both files are in the same directory
-          if exist "%SDK_BASE%\UnionMetadata" (
-            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\UnionMetadata" 2^>nul') do (
-              if exist "%SDK_BASE%\UnionMetadata\%%i\platform.winmd" (
-                set "SDK_PLATFORM=%SDK_BASE%\UnionMetadata\%%i"
-                goto :found_platform
-              )
-            )
-          ) else (
-            echo WARNING: UnionMetadata folder not found at %SDK_BASE%\UnionMetadata
-          )
+          # Find SDK References
+          if (Test-Path "$sdkBase\References") {
+              $refDirs = Get-ChildItem "$sdkBase\References" -Directory | Sort-Object Name -Descending
+              foreach ($dir in $refDirs) {
+                  if (Test-Path "$($dir.FullName)\Windows.Foundation.UniversalApiContract") {
+                      $sdkReferences = $dir.FullName
+                      Write-Host "Found SDK References: $sdkReferences"
+                      break
+                  }
+              }
+          }
           
-          REM 2. Try VS installation Common7\IDE\VC\vcpackages
-          if not defined SDK_PLATFORM (
-            if exist "%VS_PATH%\Common7\IDE\VC\vcpackages\platform.winmd" (
-              echo WARNING: Using VS vcpackages folder - may not have Windows.winmd
-              set "SDK_PLATFORM=%VS_PATH%\Common7\IDE\VC\vcpackages"
+          # Find platform.winmd and Windows.winmd in UnionMetadata
+          if (Test-Path "$sdkBase\UnionMetadata") {
+              $unionDirs = Get-ChildItem "$sdkBase\UnionMetadata" -Directory | Sort-Object Name -Descending
+              foreach ($dir in $unionDirs) {
+                  if (Test-Path "$($dir.FullName)\platform.winmd") {
+                      $sdkPlatform = $dir.FullName
+                      Write-Host "Found SDK Platform: $sdkPlatform"
+                      break
+                  }
+              }
+          } else {
+              Write-Host "WARNING: UnionMetadata folder not found"
+          }
+          
+          # Fallback 2: Try VS installation Common7\IDE\VC\vcpackages
+          if (-not $sdkPlatform) {
+              $vcPackagesPath = Join-Path $vsPath "Common7\IDE\VC\vcpackages\platform.winmd"
+              if (Test-Path $vcPackagesPath) {
+                  Write-Host "WARNING: Using VS vcpackages folder"
+                  $sdkPlatform = Split-Path $vcPackagesPath -Parent
+                  
+                  # Find Windows.winmd separately
+                  $winmdFile = Get-ChildItem -Path $sdkBase -Filter "Windows.winmd" -Recurse -ErrorAction SilentlyContinue | 
+                      Where-Object { $_.DirectoryName -match 'UnionMetadata' } | 
+                      Select-Object -First 1
+                  
+                  if ($winmdFile) {
+                      $sdkWindows = $winmdFile.DirectoryName
+                      Write-Host "Found Windows.winmd at: $sdkWindows"
+                  } else {
+                      Write-Host "WARNING: Could not find Windows.winmd"
+                  }
+              }
+          }
+          
+          # Fallback 3: Try VS Tools MSVC
+          if (-not $sdkPlatform) {
+              $msvcPlatform = Get-ChildItem -Path "$vsPath\VC\Tools\MSVC" -Filter "platform.winmd" -Recurse -ErrorAction SilentlyContinue | 
+                  Where-Object { $_.DirectoryName -match 'lib\\x64\\store\\references' } | 
+                  Sort-Object FullName -Descending | 
+                  Select-Object -First 1
               
-              REM Also need to find Windows.winmd separately if using vcpackages
-              REM Use PowerShell to avoid batch path parsing issues
-              echo Searching for Windows.winmd in SDK...
-              for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "Get-ChildItem -Path '%SDK_BASE%' -Filter 'Windows.winmd' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -match 'UnionMetadata' } | Select-Object -First 1 -ExpandProperty DirectoryName"`) do (
-                set "SDK_WINDOWS=%%i"
-                echo Found Windows.winmd directory: %%i
-              )
-              
-              if defined SDK_WINDOWS (
-                echo Successfully found Windows.winmd directory
-              ) else (
-                echo WARNING: Could not find Windows.winmd in UnionMetadata
-              )
-              
-              goto :found_platform
-            )
-          )
+              if ($msvcPlatform) {
+                  $sdkPlatform = $msvcPlatform.DirectoryName
+                  Write-Host "Found SDK Platform in VS Tools: $sdkPlatform"
+              }
+          }
           
-          REM 3. Try VS Tools MSVC lib\x64\store\references
-          if not defined SDK_PLATFORM (
-            for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul ^| sort /r`) do (
-              set "SDK_PLATFORM=%%~dpi"
-              goto :found_platform
-            )
-          )
-          :found_platform
+          if (-not $sdkPlatform) {
+              Write-Host "ERROR: Could not find platform.winmd"
+              exit 1
+          }
           
-          REM Check if we found the platform path
-          if not defined SDK_PLATFORM (
-            echo ERROR: Could not find platform.winmd in Windows SDK or VS installation
-            exit /b 1
-          )
+          # Build SDK paths list
+          $sdkPaths = @($sdkPlatform)
+          if ($sdkReferences) { $sdkPaths += $sdkReferences }
+          if ($sdkWindows) { $sdkPaths += $sdkWindows }
           
-          echo Windows SDK Platform: %SDK_PLATFORM%
-          if defined SDK_REFERENCES echo Windows SDK References: %SDK_REFERENCES%
-          if defined SDK_WINDOWS echo Windows.winmd separate path: %SDK_WINDOWS%
+          $sdkPathsStr = $sdkPaths -join ';'
+          Write-Host "SDK Paths: $sdkPathsStr"
           
-          REM Set LIBPATH to include SDK paths
-          set "SDK_PATHS=%SDK_PLATFORM%"
-          if defined SDK_REFERENCES set "SDK_PATHS=%SDK_PATHS%;%SDK_REFERENCES%"
-          if defined SDK_WINDOWS set "SDK_PATHS=%SDK_PATHS%;%SDK_WINDOWS%"
-          set "LIBPATH=%SDK_PATHS%;%LIBPATH%"
+          # Set npm config
+          npm config set msvs_version 2022
+          npm config set msbuild_path "$vsPath\MSBuild\Current\Bin\MSBuild.exe"
           
-          REM Set npm config for VS
-          call npm config set msvs_version 2022
-          call npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
+          # Set environment variables for the build
+          $env:GYP_MSVS_VERSION = "2022"
+          $env:GYP_DEFINES = "target_arch=x64"
+          $env:LIBPATH = "$sdkPathsStr;$env:LIBPATH"
+          $env:INCLUDE = "$sdkPathsStr;$env:INCLUDE"
+          $env:LIB = "$sdkPathsStr;$env:LIB"
           
-          REM Set environment variables for MSBuild to find WinMD files
-          set "GYP_MSVS_VERSION=2022"
-          set "GYP_DEFINES=target_arch=x64"
+          # Build CL flags
+          $clFlags = $sdkPaths | ForEach-Object { "/AI`"$_`"" }
+          $env:CL = $clFlags -join ' '
+          Write-Host "CL flags: $env:CL"
           
-          REM Set additional include paths for C++/CX compilation
-          set "INCLUDE=%SDK_PATHS%;%INCLUDE%"
-          set "LIB=%SDK_PATHS%;%LIB%"
+          # Run vcvars64.bat to set up VS environment, then install npm packages
+          # We need to do this in a way that preserves the environment
+          $tempBat = [System.IO.Path]::GetTempFileName() + ".bat"
+          $tempEnv = [System.IO.Path]::GetTempFileName()
           
-          REM Set CL environment variable to pass /AI flags for all WinMD paths
-          REM The UnionMetadata folder contains both platform.winmd and Windows.winmd
-          set "CL=/AI"%SDK_PLATFORM%""
-          if defined SDK_REFERENCES set "CL=%CL% /AI"%SDK_REFERENCES%""
-          if defined SDK_WINDOWS set "CL=%CL% /AI"%SDK_WINDOWS%""
-          
-          echo CL flags: %CL%
-          
-          REM Install dependencies
+          @"
+          @echo off
+          call "$vcvarsPath"
+          set GYP_MSVS_VERSION=2022
+          set GYP_DEFINES=target_arch=x64
+          set LIBPATH=$sdkPathsStr;%LIBPATH%
+          set INCLUDE=$sdkPathsStr;%INCLUDE%
+          set LIB=$sdkPathsStr;%LIB%
+          set CL=$env:CL
           call npm install --production
-          if %ERRORLEVEL% neq 0 (
-            echo ERROR: Failed to install watchdog dependencies
-            exit /b 1
-          )
+          if errorlevel 1 exit /b 1
+          set > "$tempEnv"
+          "@ | Out-File -FilePath $tempBat -Encoding ASCII
           
-          echo Watchdog service dependencies installed successfully!
+          Write-Host "Running npm install with VS environment..."
+          $result = & cmd /c $tempBat
+          
+          if ($LASTEXITCODE -ne 0) {
+              Remove-Item $tempBat -ErrorAction SilentlyContinue
+              Remove-Item $tempEnv -ErrorAction SilentlyContinue
+              Write-Host "ERROR: Failed to install watchdog dependencies"
+              exit 1
+          }
+          
+          Remove-Item $tempBat -ErrorAction SilentlyContinue
+          Remove-Item $tempEnv -ErrorAction SilentlyContinue
+          
+          Write-Host "Watchdog service dependencies installed successfully!"
+
+      # # 9b. Install watchdog service dependencies
+      # - name: Install watchdog service dependencies
+      #   working-directory: service/watchdog
+      #   shell: cmd
+      #   run: |
+      #     echo Installing watchdog service dependencies...
+          
+      #     REM Set VS path for node-gyp  
+      #     for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
+      #     echo VS Installation Path: %VS_PATH%
+          
+      #     REM Initialize VS environment for Windows SDK
+      #     call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+      #     if errorlevel 1 (
+      #       echo ERROR: Failed to initialize VS environment
+      #       exit /b 1
+      #     )
+          
+      #     REM Find Windows SDK References path
+      #     set "KITS_BASE=C:\Program Files (x86)\Windows Kits\10"
+      #     if exist "%KITS_BASE%\References" (
+      #       for /f "delims=" %%i in ('dir /b /ad /o-n "%KITS_BASE%\References" 2^>nul') do (
+      #         if exist "%KITS_BASE%\References\%%i\Windows.Foundation.UniversalApiContract" (
+      #           set "SDK_REFERENCES=%KITS_BASE%\References\%%i"
+      #           goto :found_references
+      #         )
+      #       )
+      #     )
+      #     :found_references
+          
+      #     REM Find platform.winmd and Windows.winmd in UnionMetadata
+      #     REM Both files are in the same directory
+      #     if exist "%KITS_BASE%\UnionMetadata" (
+      #       for /f "delims=" %%i in ('dir /b /ad /o-n "%KITS_BASE%\UnionMetadata" 2^>nul') do (
+      #         if exist "%KITS_BASE%\UnionMetadata\%%i\platform.winmd" (
+      #           set "SDK_PLATFORM=%KITS_BASE%\UnionMetadata\%%i"
+      #           goto :found_platform
+      #         )
+      #       )
+      #     ) else (
+      #       echo WARNING: UnionMetadata folder not found at %KITS_BASE%\UnionMetadata
+      #     )
+          
+      #     REM 2. Try VS installation Common7\IDE\VC\vcpackages
+      #     if not defined SDK_PLATFORM (
+      #       if exist "%VS_PATH%\Common7\IDE\VC\vcpackages\platform.winmd" (
+      #         echo WARNING: Using VS vcpackages folder - may not have Windows.winmd
+      #         set "SDK_PLATFORM=%VS_PATH%\Common7\IDE\VC\vcpackages"
+              
+      #         REM Also need to find Windows.winmd separately if using vcpackages
+      #         REM Use PowerShell to avoid batch path parsing issues
+      #         echo Searching for Windows.winmd in SDK...
+      #         for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "Get-ChildItem -Path '%KITS_BASE%' -Filter 'Windows.winmd' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.DirectoryName -match 'UnionMetadata' } | Select-Object -First 1 -ExpandProperty DirectoryName"`) do (
+      #           set "SDK_WINDOWS=%%i"
+      #           echo Found Windows.winmd directory: %%i
+      #         )
+              
+      #         if defined SDK_WINDOWS (
+      #           echo Successfully found Windows.winmd directory
+      #         ) else (
+      #           echo WARNING: Could not find Windows.winmd in UnionMetadata
+      #         )
+              
+      #         goto :found_platform
+      #       )
+      #     )
+          
+      #     REM 3. Try VS Tools MSVC lib\x64\store\references
+      #     if not defined SDK_PLATFORM (
+      #       for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul ^| sort /r`) do (
+      #         set "SDK_PLATFORM=%%~dpi"
+      #         goto :found_platform
+      #       )
+      #     )
+      #     :found_platform
+          
+      #     REM Check if we found the platform path
+      #     if not defined SDK_PLATFORM (
+      #       echo ERROR: Could not find platform.winmd in Windows SDK or VS installation
+      #       exit /b 1
+      #     )
+          
+      #     echo Windows SDK Platform: %SDK_PLATFORM%
+      #     if defined SDK_REFERENCES echo Windows SDK References: %SDK_REFERENCES%
+      #     if defined SDK_WINDOWS echo Windows.winmd separate path: %SDK_WINDOWS%
+          
+      #     REM Set LIBPATH to include SDK paths
+      #     set "SDK_PATHS=%SDK_PLATFORM%"
+      #     if defined SDK_REFERENCES set "SDK_PATHS=%SDK_PATHS%;%SDK_REFERENCES%"
+      #     if defined SDK_WINDOWS set "SDK_PATHS=%SDK_PATHS%;%SDK_WINDOWS%"
+      #     set "LIBPATH=%SDK_PATHS%;%LIBPATH%"
+          
+      #     REM Set npm config for VS
+      #     call npm config set msvs_version 2022
+      #     call npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
+          
+      #     REM Set environment variables for MSBuild to find WinMD files
+      #     set "GYP_MSVS_VERSION=2022"
+      #     set "GYP_DEFINES=target_arch=x64"
+          
+      #     REM Set additional include paths for C++/CX compilation
+      #     set "INCLUDE=%SDK_PATHS%;%INCLUDE%"
+      #     set "LIB=%SDK_PATHS%;%LIB%"
+          
+      #     REM Set CL environment variable to pass /AI flags for all WinMD paths
+      #     REM The UnionMetadata folder contains both platform.winmd and Windows.winmd
+      #     set "CL=/AI"%SDK_PLATFORM%""
+      #     if defined SDK_REFERENCES set "CL=%CL% /AI"%SDK_REFERENCES%""
+      #     if defined SDK_WINDOWS set "CL=%CL% /AI"%SDK_WINDOWS%""
+          
+      #     echo CL flags: %CL%
+          
+      #     REM Install dependencies
+      #     call npm install --production
+      #     if %ERRORLEVEL% neq 0 (
+      #       echo ERROR: Failed to install watchdog dependencies
+      #       exit /b 1
+      #     )
+          
+      #     echo Watchdog service dependencies installed successfully!
 
       # 10. Rebuild native modules
       - name: Rebuild Native Modules
