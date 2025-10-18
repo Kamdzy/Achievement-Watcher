@@ -123,7 +123,7 @@ jobs:
               
               REM Also need to find Windows.winmd separately if using vcpackages
               for /f "usebackq tokens=*" %%i in (`dir /b /s "%SDK_BASE%\Windows.winmd" 2^>nul ^| findstr /i "UnionMetadata" ^| sort /r`) do (
-                set "SDK_WINDOWS=%SDK_BASE%\%%~dpi"
+                set "SDK_WINDOWS=%%~dpi"
                 goto :found_windows_separately
               )
               :found_windows_separately
