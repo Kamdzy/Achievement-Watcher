@@ -150,6 +150,18 @@ jobs:
           call npm config set msvs_version 2022
           call npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
           
+          REM Set environment variables for MSBuild to find WinMD files
+          set "GYP_MSVS_VERSION=2022"
+          set "GYP_DEFINES=target_arch=x64"
+          
+          REM Set additional include paths for C++/CX compilation
+          set "INCLUDE=%SDK_PLATFORM%;%SDK_REFERENCES%;%INCLUDE%"
+          set "LIB=%SDK_PLATFORM%;%SDK_REFERENCES%;%LIB%"
+          
+          REM Create msbuild.rsp file to pass /AI flag to all nodert compilations
+          echo /p:AdditionalUsingDirectories="%SDK_PLATFORM%;%SDK_REFERENCES%" > "%TEMP%\nodert_msbuild.rsp"
+          set "CL=/AI"%SDK_PLATFORM%" /AI"%SDK_REFERENCES%""
+          
           REM Install dependencies
           call npm install --production
           if %ERRORLEVEL% neq 0 (
