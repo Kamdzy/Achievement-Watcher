@@ -72,10 +72,36 @@ jobs:
         working-directory: app
         run: node -e "console.log('Puppeteer path:', require.resolve('puppeteer')); const puppeteer = require('puppeteer'); console.log('Puppeteer loaded successfully');"
 
-      # 9b. Install watchdog dependencies
+      # 9b. Install watchdog service dependencies
       - name: Install watchdog service dependencies
         working-directory: service/watchdog
-        run: npm ci --production
+        shell: cmd
+        run: |
+          REM Set VS path for node-gyp
+          for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
+          
+          echo VS Installation Path: %VS_PATH%
+          
+          REM Initialize VS environment for Windows SDK
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 (
+            echo ERROR: Failed to initialize VS environment
+            exit /b 1
+          )
+          
+          REM Set npm config for VS
+          npm config set msvs_version 2022
+          npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
+          
+          echo Installing watchdog service dependencies...
+          REM Install dependencies
+          npm ci --production
+          if errorlevel 1 (
+            echo ERROR: Failed to install watchdog dependencies
+            exit /b 1
+          )
+          
+          echo Watchdog service dependencies installed successfully!
 
       # 10. Rebuild native modules
       - name: Rebuild Native Modules
