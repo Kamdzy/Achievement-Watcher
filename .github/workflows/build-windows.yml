@@ -77,26 +77,22 @@ jobs:
         working-directory: service/watchdog
         shell: cmd
         run: |
-          REM Set VS path for node-gyp
-          for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
+          echo Installing watchdog service dependencies...
           
+          REM Set VS path for node-gyp  
+          for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
           echo VS Installation Path: %VS_PATH%
           
           REM Initialize VS environment for Windows SDK
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-          if errorlevel 1 (
-            echo ERROR: Failed to initialize VS environment
-            exit /b 1
-          )
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
           
           REM Set npm config for VS
-          npm config set msvs_version 2022
-          npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
+          call npm config set msvs_version 2022
+          call npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
           
-          echo Installing watchdog service dependencies...
           REM Install dependencies
-          npm ci --production
-          if errorlevel 1 (
+          call npm install --production
+          if %ERRORLEVEL% neq 0 (
             echo ERROR: Failed to install watchdog dependencies
             exit /b 1
           )
