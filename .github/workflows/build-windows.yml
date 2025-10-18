@@ -111,12 +111,23 @@ jobs:
                 goto :found_platform
               )
             )
+          ) else (
+            echo WARNING: UnionMetadata folder not found at %SDK_BASE%\UnionMetadata
           )
           
           REM 2. Try VS installation Common7\IDE\VC\vcpackages
           if not defined SDK_PLATFORM (
             if exist "%VS_PATH%\Common7\IDE\VC\vcpackages\platform.winmd" (
+              echo WARNING: Using VS vcpackages folder - may not have Windows.winmd
               set "SDK_PLATFORM=%VS_PATH%\Common7\IDE\VC\vcpackages"
+              
+              REM Also need to find Windows.winmd separately if using vcpackages
+              for /f "usebackq tokens=*" %%i in (`dir /b /s "%SDK_BASE%\Windows.winmd" 2^>nul ^| findstr /i "UnionMetadata" ^| sort /r`) do (
+                set "SDK_WINDOWS=%SDK_BASE%\%%~dpi"
+                goto :found_windows_separately
+              )
+              :found_windows_separately
+              
               goto :found_platform
             )
           )
@@ -138,10 +149,12 @@ jobs:
           
           echo Windows SDK Platform: %SDK_PLATFORM%
           if defined SDK_REFERENCES echo Windows SDK References: %SDK_REFERENCES%
+          if defined SDK_WINDOWS echo Windows.winmd separate path: %SDK_WINDOWS%
           
           REM Set LIBPATH to include SDK paths
           set "SDK_PATHS=%SDK_PLATFORM%"
           if defined SDK_REFERENCES set "SDK_PATHS=%SDK_PATHS%;%SDK_REFERENCES%"
+          if defined SDK_WINDOWS set "SDK_PATHS=%SDK_PATHS%;%SDK_WINDOWS%"
           set "LIBPATH=%SDK_PATHS%;%LIBPATH%"
           
           REM Set npm config for VS
