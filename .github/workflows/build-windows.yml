@@ -80,15 +80,28 @@ jobs:
           REM Set VS path for node-gyp
           for /f "usebackq delims=" %%i in (`vswhere.exe -latest -property installationPath`) do set "VS_PATH=%%i"
           
+          echo VS Installation Path: %VS_PATH%
+          
           REM Initialize VS environment
           call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 (
+            echo ERROR: Failed to initialize VS environment
+            exit /b 1
+          )
           
           REM Set npm config for VS
           npm config set msvs_version 2022
           npm config set msbuild_path "%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
           
+          echo Starting electron-rebuild...
           REM Rebuild with explicit VS path
           npx electron-rebuild --force --debug --ms-build-path="%VS_PATH%\MSBuild\Current\Bin\MSBuild.exe"
+          if errorlevel 1 (
+            echo ERROR: electron-rebuild failed
+            exit /b 1
+          )
+          
+          echo Native module rebuild completed successfully!
 
       # 11. Cache Electron headers
       - name: Cache Electron headers
