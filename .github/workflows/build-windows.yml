@@ -90,8 +90,21 @@ jobs:
             exit /b 1
           )
           
-          REM Set Windows SDK paths for WinRT components
+          REM Find Windows SDK path (usually in C:\Program Files (x86)\Windows Kits\10)
+          set "SDK_BASE=C:\Program Files (x86)\Windows Kits\10"
+          if exist "%SDK_BASE%" (
+            for /f "delims=" %%i in ('dir /b /ad /o-n "%SDK_BASE%\References"') do (
+              if exist "%SDK_BASE%\References\%%i\Windows.Foundation.UniversalApiContract" (
+                set "WINMD_PATH=%SDK_BASE%\References\%%i"
+                goto :found_sdk
+              )
+            )
+          )
+          
+          REM Fallback: search in VS installation
           for /f "usebackq tokens=*" %%i in (`dir /b /s "%VS_PATH%\VC\Tools\MSVC\*\lib\x64\store\references\platform.winmd" 2^>nul`) do set "WINMD_PATH=%%~dpi"
+          
+          :found_sdk
           if not defined WINMD_PATH (
             echo ERROR: Could not find Windows SDK platform.winmd
             exit /b 1
