@@ -379,10 +379,19 @@ jobs:
 
       # 12. Fetch all tags and history for version comparison
       - name: Fetch tags and history
+        shell: pwsh
         run: |
-          git fetch --tags --force --unshallow 2>/dev/null || git fetch --tags --force
+          # Fetch with unshallow, suppress errors if already complete
+          try {
+            git fetch --tags --force --unshallow
+          } catch {
+            git fetch --tags --force
+          }
+          
+          Write-Host "Available tags:"
           git tag -l
-          echo "Recent commits:"
+          
+          Write-Host "`nRecent commits:"
           git log --oneline -10
 
       # 13. Get version and generate release notes
