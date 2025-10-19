@@ -4,6 +4,8 @@ const path = require('path');
 const { app } = require('electron');
 app.setName('Achievement Watcher');
 app.setPath('userData', path.join(app.getPath('appData'), app.getName()));
+const { BrowserFetcher } = require('puppeteer');
+const CHROMIUM_REVISION = '1108766';
 const puppeteerCore = require('puppeteer');
 const ChromeLauncher = require('chrome-launcher');
 const puppeteer = require('puppeteer-extra');
@@ -378,18 +380,29 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function ensureChromium() {
+  const chromium = path.join(process.env['APPDATA'], 'Achievement Watcher', 'Chromium');
+  const fetcher = new BrowserFetcher({ path: chromium });
+  const revisionInfo = fetcher.revisionInfo(CHROMIUM_REVISION);
+  if (revisionInfo.local) return revisionInfo;
+  const info = await fetcher.download(CHROMIUM_REVISION);
+  return info;
+}
+
 async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
   //if (Date.now() - lastScrape < 3000) {
   //  await delay(Math.floor(Math.random() * 1500) + (Date.now() - lastScrape));
   //  lastScrape = Date.now();
   //}
   try {
-    const chromePath = ChromeLauncher.Launcher.getInstallations()[0];
+    const installedChromePath = ChromeLauncher.Launcher.getInstallations()[0];
+    const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : await ensureChromium();
     const url = `https://steamhunters.com/apps/${info.appid}/achievements`;
     if (!puppeteerWindow.browser)
       puppeteerWindow.browser = await puppeteer.launch({
         headless: alternate && alternate.steamhunters ? 'new' : false,
-        executablePath: fs.existsSync(chromePath) ? chromePath : puppeteerCore.executablePath(),
+        executablePath: chromiumPath,
+        args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-extensions'],
       });
     if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
     if (!puppeteerWindow.page) {

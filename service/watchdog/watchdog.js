@@ -198,7 +198,7 @@ var app = {
         if (evt !== 'update') return;
 
         const currentTime = Date.now();
-        const fileLastModified = fs.stat(name).mtimeMs || 0;
+        const fileLastModified = fs.statSync(name).mtimeMs || 0;
         if (currentTime - fileLastModified > 1000) return;
 
         let filePath = path.parse(name);
