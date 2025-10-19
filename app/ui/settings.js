@@ -81,7 +81,10 @@ let holdingKeysCheck = null;
             let filename = $(this).find(':selected').data('file');
             if (!filename || filename == '') return;
 
-            let file = path.join(process.env['APPDATA'], 'Achievement Watcher', 'Media', filename);
+            let file =
+              value === '1'
+                ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', filename)
+                : path.join(process.env['APPDATA'], 'Achievement Watcher', 'Media', filename);
             $('#customToastAudio_sample').attr('src', file).get(0).play();
           }
         } catch (err) {

@@ -58,7 +58,6 @@
     "xml2js": "^0.4.23"
   },
   "config": {
-    "debug": false,
     "user-agent": "Chrome/",
     "disable-gpu": false,
     "window": {

@@ -48,6 +48,7 @@ let achievementsJS = null;
 
 if (manifest.config['disable-gpu']) app.disableHardwareAcceleration();
 if (manifest.config.appid) app.setAppUserModelId(manifest.config.appid);
+manifest.config.debug = process.env.NODE_ENV === 'development' || process.defaultApp || /[\\/]electron/.test(process.execPath);
 
 let puppeteerWindow = {};
 let MainWin = null;
@@ -149,7 +150,7 @@ async function startEngines() {
     settingsJS = require(path.join(__dirname, '../settings.js'));
     settingsJS.setUserDataPath(userData);
   }
-  if (!configJS) configJS = await settingsJS.load();
+  configJS = await settingsJS.load();
   if (!achievementsJS) {
     achievementsJS = require(path.join(__dirname, '../parser/achievements.js'));
     achievementsJS.initDebug({ isDev: app.isDev || false, userDataPath: userData });
@@ -180,7 +181,7 @@ async function getCachedData(info) {
 }
 
 ipcMain.on('capture-screen', async (event, { image, filename }) => {
-  if (!configJS.souvenir_screenshot.screenshot) return;
+  if (!configJS.souvenir_screenshot.screenshot || manifest.config.debug) return;
   const buffer = Buffer.from(image, 'base64');
   const savePath = path.join(
     configJS.souvenir_screenshot.custom_dir || app.getPath('pictures'),
@@ -396,7 +397,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
   //}
   try {
     const installedChromePath = ChromeLauncher.Launcher.getInstallations()[0];
-    const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : await ensureChromium();
+    const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : (await ensureChromium()).executablePath;
     const url = `https://steamhunters.com/apps/${info.appid}/achievements`;
     if (!puppeteerWindow.browser)
       puppeteerWindow.browser = await puppeteer.launch({
@@ -1056,7 +1057,10 @@ async function createNotificationWindow(info) {
 
   if (configJS.notification_toast.customToastAudio === '2' || configJS.notification_toast.customToastAudio === '1') {
     let toastAudio = require(path.join(__dirname, '../util/toastAudio.js'));
-    let soundFile = configJS.notification_toast.customToastAudio === '1' ? toastAudio.getDefault() : toastAudio.getCustom();
+    let soundFile =
+      configJS.notification_toast.customToastAudio === '1'
+        ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())
+        : toastAudio.getCustom();
     player.play(soundFile);
   }
   notificationWindow.webContents.on('did-finish-load', () => {
@@ -1326,6 +1330,30 @@ function checkResources() {
 
 try {
   if (app.requestSingleInstanceLock() !== true) app.quit();
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    await startEngines();
+    const skippedVersion = configJS.skippedVersion;
+    if (skippedVersion && skippedVersion <= info.version) {
+      return;
+    }
+    const { response } = await dialog.showMessageBox({
+      type: 'info',
+      title: 'Update Ready',
+      message: `A new version (${info.version}) has been downloaded.`,
+      detail: `Would you like to install it now?`,
+      buttons: ['Yes', 'Later', 'Skip this version'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (response === 0) autoUpdater.quitAndInstall();
+    else if (response === 2) {
+      configJS.skippedVersion = info.version;
+      settingsJS.save(configJS);
+    }
+  });
+
   app
     .on('ready', async function () {
       autoUpdater.checkForUpdatesAndNotify();
@@ -1358,18 +1386,6 @@ try {
       await delay(5000);
       if (!overlayWindow && !progressWindow && !notificationWindow && !playtimeWindow && !MainWin) app.quit();
     });
-  autoUpdater.on('update-downloaded', () => {
-    dialog
-      .showMessageBox({
-        type: 'info',
-        title: 'Update Ready',
-        message: 'A new version has been downloaded. Restart now to install it?',
-        buttons: ['Yes', 'Later'],
-      })
-      .then((result) => {
-        if (result.response === 0) autoUpdater.quitAndInstall();
-      });
-  });
 } catch (err) {
   dialog.showErrorBox('Critical Error', `Failed to initialize:\n${err}`);
   app.quit();

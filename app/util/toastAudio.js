@@ -9,10 +9,10 @@ module.exports.setUserDataPath = (p) => {
 };
 
 module.exports.getDefault = () => {
-  const _default_ = 'Windows Notify System Generic.wav';
+  const _default_ = 'Windows Unlock.wav';
 
   try {
-    const filepath = readRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/Notification.Default/.Current', '');
+    const filepath = readRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/WindowsUnlock/.Current', '');
 
     if (filepath) {
       return path.parse(filepath).base;
@@ -28,8 +28,8 @@ module.exports.setCustom = async (filename) => {
   try {
     const file = path.join(userDataPath, 'Media', filename);
 
-    await writeRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/Notification.Achievement/.Current', '', file);
-    await writeRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/Notification.Achievement/.Default', '', file);
+    writeRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/Notification.Achievement/.Current', '', file);
+    writeRegistryString('HKCU', 'AppEvents/Schemes/Apps/.Default/Notification.Achievement/.Default', '', file);
   } catch {
     /*Do nothing*/
   }

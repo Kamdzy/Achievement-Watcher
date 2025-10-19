@@ -23,6 +23,7 @@ const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
 
+let steamUsersList;
 let appidListMap = new Map();
 let debug;
 let cacheRoot;
@@ -423,35 +424,38 @@ const getSteamUsers = (module.exports.getSteamUsers = async (steamPath) => {
   if (!users || users.length == 0) users = await glob('*([0-9])', { cwd: path.join(steamPath, 'userdata'), onlyDirectories: true, absolute: false });
 
   if (users.length == 0) throw 'No Steam User ID found';
-  for (let user of users) {
-    let id = steamID.to64(user);
-    let data = await steamID.whoIs(id);
 
-    if (data.privacyState === 'public') {
-      debug.log(`${user} - ${id} (${data.steamID}) is public`);
-      result.push({
-        user: user,
-        id: id,
-        name: data.steamID,
-        profile: data,
-      });
-    } else {
-      debug.log(`${user} - ${id} (${data.steamID}) is not public`);
-    }
-  }
-
-  if (result.length > 0) {
-    return result;
-  } else {
-    throw 'Public profile: none.';
-  }
+  result = await Promise.all(
+    users.map(async (user) => {
+      const id = steamID.to64(user);
+      const data = await steamID.whoIs(id);
+      if (data.privacyState === 'public') {
+        debug.log(`${user} - ${id} (${data.steamID}) is public`);
+        return {
+          user,
+          id,
+          name: data.steamID,
+          profile: data,
+        };
+      } else {
+        debug.log(`${user} - ${id} (${data.steamID}) is not public`);
+        return null;
+      }
+    })
+  );
+  // filter out nulls
+  result = result.filter(Boolean);
+  if (result.length === 0) throw 'Public profile: none.';
+  return result;
 });
 
 const getSteamUsersList = (module.exports.getSteamUsersList = async () => {
+  if (steamUsersList) return steamUsersList;
   if (!regKeyExists('HKCU', 'Software/Valve/Steam')) return [];
   try {
     let steamPath = await getSteamPath();
     let publicUsers = await getSteamUsers(steamPath);
+    steamUsersList = publicUsers;
     return publicUsers;
   } catch (e) {
     return [];

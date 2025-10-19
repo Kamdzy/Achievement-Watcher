@@ -85,8 +85,11 @@ function readRegistryString(hive, key, valueName) {
   // but registry-js expects '' for default value (just pass '')
   const values = enumerateValues(hiveEnum, normalizedKey);
   const val = values.find(v => v.name === valueName);
-  if (!val || val.type !== 'REG_SZ') return null; // Only accept string values
 
+  if (!val || (val.type !== 'REG_SZ' && val.type !== 'REG_EXPAND_SZ')) return null;
+  if (val.type === 'REG_EXPAND_SZ') {
+    return val.data.replace(/%([^%]+)%/g, (_, name) => process.env[name] || `%${name}%`);
+  }
   return val.data;
 }
 
