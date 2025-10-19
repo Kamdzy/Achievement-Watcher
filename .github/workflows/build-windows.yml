@@ -375,7 +375,13 @@ jobs:
           path: ~/.electron
           key: electron-headers-${{ runner.os }}-12.2.3
 
-      # 12. Get version and generate release notes
+      # 12. Fetch all tags for version comparison
+      - name: Fetch tags
+        run: |
+          git fetch --tags --force
+          git tag -l
+
+      # 13. Get version and generate release notes
       - name: Get version and generate release notes
         id: get_version
         shell: pwsh
@@ -426,25 +432,34 @@ jobs:
           $commitLog = ""
           if ($lastTag) {
             Write-Host "Getting commits since $lastTag..."
-            $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges
             
-            if ($commits) {
-              $commitArray = $commits -split "`n"
-              $commitCount = $commitArray.Count
+            # Check if tag exists locally
+            $tagExists = git tag -l $lastTag
+            if ($tagExists) {
+              $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>&1
               
-              if ($commitCount -gt 10) {
-                # Limit to 10 commits
-                $commitLog = "## 🎉 What's Changed`n`n"
-                $commitLog += ($commitArray | Select-Object -First 10) -join "`n"
-                $remaining = $commitCount - 10
-                $commitLog += "`n`n_...and $remaining more commit(s)_"
+              if ($LASTEXITCODE -eq 0 -and $commits -and $commits -notmatch "fatal|error") {
+                $commitArray = $commits -split "`n"
+                $commitCount = $commitArray.Count
+                
+                if ($commitCount -gt 10) {
+                  # Limit to 10 commits
+                  $commitLog = "## 🎉 What's Changed`n`n"
+                  $commitLog += ($commitArray | Select-Object -First 10) -join "`n"
+                  $remaining = $commitCount - 10
+                  $commitLog += "`n`n_...and $remaining more commit(s)_"
+                } else {
+                  $commitLog = "## 🎉 What's Changed`n`n" + $commits
+                }
+                
+                Write-Host "Found $commitCount commit(s)"
               } else {
-                $commitLog = "## 🎉 What's Changed`n`n" + $commits
+                Write-Host "WARNING: Could not get commit log, tag might not exist in history"
+                $commitLog = "## 🎉 What's Changed`n`n- See commit history for changes since $lastTag"
               }
-              
-              Write-Host "Found $commitCount commit(s)"
             } else {
-              $commitLog = "## 🎉 What's Changed`n`n- No new commits since last release"
+              Write-Host "WARNING: Tag $lastTag not found locally"
+              $commitLog = "## 🎉 What's Changed`n`n- See commit history for changes since $lastTag"
             }
           } else {
             $commitLog = "## 🎉 What's Changed`n`n- Initial release"
