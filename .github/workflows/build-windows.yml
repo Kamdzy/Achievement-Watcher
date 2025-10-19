@@ -14,6 +14,8 @@ jobs:
       # 1. Checkout repo
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
 
       # 2. Cache OBS Studio
       - name: Cache OBS Studio
@@ -375,11 +377,13 @@ jobs:
           path: ~/.electron
           key: electron-headers-${{ runner.os }}-12.2.3
 
-      # 12. Fetch all tags for version comparison
-      - name: Fetch tags
+      # 12. Fetch all tags and history for version comparison
+      - name: Fetch tags and history
         run: |
-          git fetch --tags --force
+          git fetch --tags --force --unshallow 2>/dev/null || git fetch --tags --force
           git tag -l
+          echo "Recent commits:"
+          git log --oneline -10
 
       # 13. Get version and generate release notes
       - name: Get version and generate release notes
@@ -436,7 +440,8 @@ jobs:
             # Check if tag exists locally
             $tagExists = git tag -l $lastTag
             if ($tagExists) {
-              $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>&1
+              # Get commits including merges to capture upstream changes
+              $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" 2>&1
               
               if ($LASTEXITCODE -eq 0 -and $commits -and $commits -notmatch "fatal|error") {
                 # Split commits into array and filter out empty lines
