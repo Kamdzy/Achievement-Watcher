@@ -439,7 +439,8 @@ jobs:
               $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges 2>&1
               
               if ($LASTEXITCODE -eq 0 -and $commits -and $commits -notmatch "fatal|error") {
-                $commitArray = $commits -split "`n"
+                # Split commits into array and filter out empty lines
+                $commitArray = ($commits -split "`n") | Where-Object { $_ -and $_.Trim() }
                 $commitCount = $commitArray.Count
                 
                 if ($commitCount -gt 10) {
@@ -448,8 +449,10 @@ jobs:
                   $commitLog += ($commitArray | Select-Object -First 10) -join "`n"
                   $remaining = $commitCount - 10
                   $commitLog += "`n`n_...and $remaining more commit(s)_"
+                } elseif ($commitCount -gt 0) {
+                  $commitLog = "## 🎉 What's Changed`n`n" + ($commitArray -join "`n")
                 } else {
-                  $commitLog = "## 🎉 What's Changed`n`n" + $commits
+                  $commitLog = "## 🎉 What's Changed`n`n- No new commits since last release"
                 }
                 
                 Write-Host "Found $commitCount commit(s)"
