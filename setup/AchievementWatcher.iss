@@ -10,9 +10,9 @@
 #define AppName "Achievement Watcher"
 #define OurVersion "2.0.0"
 #define Author "Anthony Beaumont (Forked by Fabio Louro)"
-#define Website "https://github.com/darktakayanagi/Achievement-Watcher"
+#define Website "https://github.com/Kamdzy/Achievement-Watcher"
 #define DonationURL "https://www.paypal.me/xan105"
-#define VersionURL "https://github.com/darktakayanagi/Achievement-Watcher/raw/master/setup/version.ini"
+#define VersionURL "https://github.com/Kamdzy/Achievement-Watcher/raw/master/setup/version.ini"
 #define Copyright "© 2019-2022 & 2025"
 
 ; xp, vista, win7, win8, win8.1, win10

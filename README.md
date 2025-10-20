@@ -5,7 +5,7 @@
 >
 > This is just my personal changes added to it and made public for anyone who might want to use them.
 >
-> See [Releases](https://github.com/darktakayanagi/Achievement-Watcher/Releases) for full details
+> See [Releases](https://github.com/Kamdzy/Achievement-Watcher/Releases) for full details
 
 ## Notable Changes
 

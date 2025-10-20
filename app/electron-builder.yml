@@ -3,8 +3,8 @@ productName: 'Achievement Watcher'
 
 publish:
   provider: github
-  owner: darktakayanagi
-  repo: achievement-watcher
+  owner: Kamdzy
+  repo: Achievement-Watcher
 
 win:
   icon: ../setup/resources/icon.ico
