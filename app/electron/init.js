@@ -13,9 +13,11 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 puppeteer.use(StealthPlugin());
 const { BrowserWindow, dialog, session, shell, ipcMain, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
+autoUpdater.autoInstallOnAppQuit = false;
 const remote = require('@electron/remote/main');
 remote.initialize();
 const minimist = require('minimist');
+const { XMLParser } = require('fast-xml-parser');
 const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const ipc = require(path.join(__dirname, 'ipc.js'));
@@ -89,8 +91,31 @@ async function getUserAchievements(appid) {
   }));
 }
 
-async function getSteamData(appid, type) {
+async function getSteamData(request) {
+  const appid = request.appid;
+  const type = request.type;
+  const user = request.user;
   try {
+    if (type === 'user') {
+      const url = `https://steamcommunity.com/profiles/${user}/stats/${appid}/?xml=1`;
+      const res = await fetch(url);
+      const xml = await res.text();
+      const parser = new XMLParser({ ignoreAttributes: false, allowBooleanAttributes: true, cdataPropName: '__cdata' });
+      const data = parser.parse(xml);
+      const achievements = data?.playerstats?.achievements?.achievement || [];
+      const list = Array.isArray(achievements) ? achievements : [achievements];
+
+      return list.map((a) => {
+        const name = a.apiname?.__cdata || a.apiname || '';
+        const unlock = parseInt(a.unlockTimestamp ?? 0);
+        return {
+          apiname: name,
+          achieved: unlock > 0 ? 1 : 0,
+          unlocktime: unlock || 0,
+        };
+      });
+    }
+
     if (type === 'data') {
       let info = { appid };
       await scrapeWithPuppeteer(info, { steamhunters: true });
@@ -172,7 +197,7 @@ async function getCachedData(info) {
         info.description = info.a?.displayName;
         return;
       }
-      let data = await getSteamData(info.appid, 'steamhunters');
+      let data = await getSteamData({ appid: info.appid, type: 'steamhunters' });
       info.game = data;
       await achievementsJS.saveGameToCache(info, configJS.achievement.lang);
       info.a = info.game.achievements.find((ac) => ac.name === String(info.ach));
@@ -200,7 +225,7 @@ ipcMain.on('close-puppeteer', async (event, arg) => {
 
 ipcMain.on('get-steam-data', async (event, arg) => {
   const appid = +arg.appid;
-  event.returnValue = await getSteamData(appid, arg.type);
+  event.returnValue = await getSteamData({ appid, type: arg.type, user: arg.user });
 });
 
 ipcMain.on('get-steam-appid-from-title', async (event, arg) => {
@@ -357,7 +382,7 @@ ipcMain.on('achievement-data-ready', () => {
 });
 
 ipcMain.handle('get-achievements', async (event, appid) => {
-  return await getSteamData(appid, 'steamhunters');
+  return await getSteamData({ appid, type: 'steamhunters' });
 });
 
 ipcMain.handle('start-watchdog', async (event, arg) => {
@@ -443,7 +468,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
               default_value: 0,
               displayName: item.name,
               hidden: item.hidden ? 1 : 0,
-              description: item.description,
+              description: item.description || ' ',
               icon: item.icon,
               icongray: item.iconGray,
             });

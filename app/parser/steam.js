@@ -10,7 +10,6 @@ const omit = require('lodash.omit');
 const moment = require('moment');
 const request = require('request-zero');
 const urlParser = require('url');
-const ffs = require('@xan105/fs');
 const { readRegistryStringAndExpand, regKeyExists, readRegistryInteger, readRegistryString, listRegistryAllSubkeys } = require('../util/reg');
 const appPath = path.join(__dirname, '../');
 const steamID = require(path.join(appPath, 'util/steamID.js'));
@@ -359,12 +358,12 @@ module.exports.getAchievementsFromAPI = async (cfg) => {
       steam: 0,
     };
 
-    let local = await ffs.stats(cache.local);
-    if (Object.keys(local).length > 0) {
-      time.local = moment(local.mtime).valueOf();
+    if (fs.existsSync(cache.local)) {
+      let local = fs.statSync(cache.local);
+      if (Object.keys(local).length > 0) time.local = moment(local.mtime).valueOf();
     }
 
-    let steamStats = await ffs.stats(cache.steam);
+    let steamStats = fs.statSync(cache.steam);
     if (Object.keys(steamStats).length > 0) {
       time.steam = moment(steamStats.mtime).valueOf();
     } else {
@@ -407,7 +406,7 @@ const getSteamPath = (module.exports.getSteamPath = async () => {
   for (let regHive of regHives) {
     steamPath = readRegistryString(regHive.root, regHive.key, regHive.name);
     if (steamPath) {
-      if (await ffs.exists(path.join(steamPath, 'steam.exe'))) {
+      if (fs.existsSync(path.join(steamPath, 'steam.exe'))) {
         break;
       }
     }
@@ -481,6 +480,12 @@ function getSteamUserStatsFromSRV(user, appID) {
         return reject(err);
       });
   });
+}
+
+async function getSteamUserStatsFromSRVFallback(user, appID) {
+  const { ipcRenderer } = require('electron');
+  const result = ipcRenderer.sendSync('get-steam-data', { appid: appID, user, type: 'user' });
+  return result;
 }
 
 async function getSteamUserStats(cfg) {
@@ -717,7 +722,7 @@ function GetMissingData(data) {
       updated = true;
       const missing = data.achievement.list.filter((ac) => !ac.description || ac.description === '');
       updatedDesc = ipcRenderer.sendSync('get-steam-data', { appid: data.appid, type: 'steamhunters' });
-      const map = new Map(updatedDesc.achievements.map((item) => [item.title, item.desc]));
+      const map = new Map(updatedDesc.achievements.map((item) => [item.name, item.description]));
       for (let ach of data.achievement.list) {
         if (!ach.description && (map.has(ach.displayName) || map.has(ach.name))) ach.description = map.get(ach.displayName) || map.get(ach.name);
       }
