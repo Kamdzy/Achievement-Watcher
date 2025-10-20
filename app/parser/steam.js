@@ -467,16 +467,55 @@ function getSteamUserStatsFromSRV(user, appID) {
   return new Promise((resolve, reject) => {
     request
       .getJson(url)
-      .then((data) => {
+      .then(async (data) => {
         if (data.error) {
+          // Fallback to IPC method
+          try {
+            const fallbackResult = await getSteamUserStatsFromSRVFallback(user, appID);
+            if (fallbackResult && (!Array.isArray(fallbackResult) || fallbackResult.length > 0)) {
+              return resolve(fallbackResult);
+            }
+          } catch (fallbackErr) {
+            debug.log(`Fallback failed: ${fallbackErr}`);
+          }
           return reject(data.error);
         } else if (data.data) {
+          // Check if data is empty or invalid
+          if (!data.data || (Array.isArray(data.data) && data.data.length === 0)) {
+            // Fallback to IPC method
+            try {
+              const fallbackResult = await getSteamUserStatsFromSRVFallback(user, appID);
+              if (fallbackResult && (!Array.isArray(fallbackResult) || fallbackResult.length > 0)) {
+                return resolve(fallbackResult);
+              }
+            } catch (fallbackErr) {
+              debug.log(`Fallback failed: ${fallbackErr}`);
+            }
+          }
           return resolve(data.data);
         } else {
+          // Fallback to IPC method
+          try {
+            const fallbackResult = await getSteamUserStatsFromSRVFallback(user, appID);
+            if (fallbackResult && (!Array.isArray(fallbackResult) || fallbackResult.length > 0)) {
+              return resolve(fallbackResult);
+            }
+          } catch (fallbackErr) {
+            debug.log(`Fallback failed: ${fallbackErr}`);
+          }
           return reject('Unexpected Error');
         }
       })
-      .catch((err) => {
+      .catch(async (err) => {
+        // Fallback to IPC method on network error
+        try {
+          const fallbackResult = await getSteamUserStatsFromSRVFallback(user, appID);
+          if (fallbackResult && (!Array.isArray(fallbackResult) || fallbackResult.length > 0)) {
+            return resolve(fallbackResult);
+          }
+        } catch (fallbackErr) {
+          debug.log(`Fallback failed: ${fallbackErr}`);
+        }
         return reject(err);
       });
   });
