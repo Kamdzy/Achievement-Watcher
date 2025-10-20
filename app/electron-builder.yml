@@ -25,7 +25,7 @@ directories:
   app: .
   buildResources: ./build
 
-asar: false
+# asar: false
 
 # Tell electron-builder to not manage node_modules itself
 npmRebuild: false
