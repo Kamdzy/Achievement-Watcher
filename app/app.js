@@ -30,6 +30,9 @@ let debug = new (require('@xan105/log'))({
   file: path.join(userdatapath, `logs/${ipcRenderer.sendSync('get-app-name-sync')}.log`),
 });
 
+const gameElements = new Map();
+let gameList = [];
+
 ipcRenderer.on('reset-watchdog-status', (event) => {
   let shadow = document.querySelector('title-bar').shadowRoot;
   let watchdogStatus = shadow.querySelector('.status-dot');
@@ -60,6 +63,29 @@ ipcRenderer.on('watchdog-status', (event, found) => {
   }
 });
 
+ipcRenderer.on('achievement-unlock', (event, { appid, ach_data }) => {
+  const game = gameList.find((game) => game.appid == appid);
+  const achievement = game.achievement.list.find((ach) => ach.name == ach_data.name);
+  achievement.Achieved = 1;
+  achievement.UnlockTime = Date.now() / 1000;
+  game.achievement.unlocked += 1;
+  updateGameBox(appid, Math.floor((game.achievement.unlocked / game.achievement.total) * 100));
+  updateGamePage(appid, ach_data);
+});
+
+function updateGamePage(appid, ach_data) {
+  app.onGameBoxClick($(gameElements.get(`${appid}`)), gameList);
+}
+
+function updateGameBox(appid, newProgress) {
+  const gameEl = gameElements.get(`${appid}`);
+  if (!gameEl) return;
+  const progressBar = gameEl.querySelector('.progressBar');
+  const meter = progressBar.querySelector('.meter');
+  meter.style.width = `${newProgress}%`;
+  progressBar.dataset.percent = newProgress;
+}
+
 var app = {
   args: getArgs(remote.process.argv),
   config: settings.load(),
@@ -87,9 +113,9 @@ var app = {
     $('#user-info .info .name').text(self.config.username || os.userInfo().username || 'User');
 
     let loadingElem = {
-      elem: $('#game-list .loading'),
-      progress: $('#game-list .loading .progressBar'),
-      meter: $('#game-list .loading .progressBar > .meter'),
+      elem: $('#main-footer .loading'),
+      progress: $('#main-footer .loading .progressBar'),
+      meter: $('#main-footer .loading .progressBar > .meter'),
     };
 
     $('#user-info .info .stats li:eq(0) span.data').text('0');
@@ -98,37 +124,32 @@ var app = {
 
     $('#search-bar input[type=search]').val('').change().blur();
 
+    let progress_cache = [];
+    $('#user-info').fadeTo('fast', 1).css('pointer-events', 'initial');
+    $('#sort-box').fadeTo('fast', 1).css('pointer-events', 'initial');
+    $('#search-bar').fadeTo('fast', 1).css('pointer-events', 'initial');
+    $('title-bar')[0].inSettings = false;
+
     achievements
-      .makeList(self.config, (percent) => {
-        loadingElem.progress.attr('data-percent', percent);
-        loadingElem.meter.css('width', percent);
-      })
-      .then((list) => {
-        loadingElem.elem.hide();
-
-        if (list.length == 0) {
-          debug.log('No game found !');
-          $('#game-list .isEmpty').show();
-          return;
-        }
-        ipcRenderer.sendSync('close-puppeteer');
-        debug.log('Populating game list ...');
-
-        let elem = $('#game-list ul');
-
-        elem.empty();
-
-        let progress_cache = [];
-
-        for (let game in list) {
-          if (list[game].achievement.unlocked > 0 || self.config.achievement.hideZero == false) {
-            let progress = Math.round((100 * list[game].achievement.unlocked) / list[game].achievement.total);
+      .makeList(
+        self.config,
+        (percent) => {
+          loadingElem.progress.attr('data-percent', percent);
+          loadingElem.meter.css('width', percent + '%');
+        },
+        (game) => {
+          let elem = $('#game-list ul');
+          if (game.achievement.unlocked > 0 || self.config.achievement.hideZero == false) {
+            let progress = Math.round((100 * game.achievement.unlocked) / game.achievement.total);
 
             progress_cache.push(progress);
+            let average_progress =
+              progress_cache.length > 0 ? Math.floor(progress_cache.reduce((acc, curr) => acc + curr) / progress_cache.length) : 0;
+            $('#user-info .info .stats li:eq(2) span.data').text(average_progress);
 
             let timeMostRecent = Math.max.apply(
               Math,
-              list[game].achievement.list
+              game.achievement.list
                 .filter((ach) => ach.Achieved && ach.UnlockTime > 0)
                 .map((ach) => {
                   return ach.UnlockTime;
@@ -138,15 +159,15 @@ var app = {
             let portrait = self.config.achievement.thumbnailPortrait;
 
             portrait ? $('#game-list').addClass('view-portrait') : $('#game-list').removeClass('view-portrait');
-            let isPortrait = portrait && list[game].img.portrait;
-            let imgName = isPortrait ? list[game].img.portrait : list[game].img.header;
+            let isPortrait = portrait && game.img.portrait;
+            let imgName = isPortrait ? game.img.portrait : game.img.header;
             let template = `
             <li>
-                <div class="game-box" data-index="${game}" data-appid="${list[game].appid}" data-time="${timeMostRecent > 0 ? timeMostRecent : 0}" ${
-              list[game].system ? `data-system="${list[game].system}"` : ''
-            }>
+                <div class="game-box" data-index="${gameList.length}" data-appid="${game.appid}" data-time="${
+              timeMostRecent > 0 ? timeMostRecent : 0
+            }" ${game.system ? `data-system="${game.system}"` : ''}>
                   <div class="loading-overlay"><div class="content"><i class="fas fa-spinner fa-spin"></i></div></div>
-                  <div class="header ${isPortrait ? 'glow' : ''}" id="game-header-${list[game].appid}" style="background: url('${
+                  <div class="header ${isPortrait ? 'glow' : ''}" id="game-header-${game.appid}" style="background: url('${
               pathToFileURL(path.join(appPath, 'resources/img/loading.gif')).href
             }');">
                   <!-- Play Button -->
@@ -165,85 +186,100 @@ var app = {
                   
                   <div class="info">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                      <div class="title">${list[game].name}</div>
+                      <div class="title">${game.name}</div>
                       <img style="height: 1em; vertical-align: middle; line-height: 1; flex-shrink:0;" src="${ipcRenderer.sendSync(
                         'fetch-source-img',
-                        list[game].source
+                        game.source
                       )}">
                     </div>
                     <div class="progressBar" data-percent="${progress}"><span class="meter" style="width:${progress}%"></span></div>
-                    <!--${list[game].source ? `<div class="source">${list[game].source}</div>` : ''}-->
+                    <!--${game.source ? `<div class="source">${game.source}</div>` : ''}-->
                   </div>
                 </div>
             </li>
             `;
 
             elem.append(template);
+            gameList.push(game);
+            $('#user-info .info .stats li:eq(1) span.data').text(
+              `${gameList.length}/${gameList.filter((game) => game.achievement.unlocked == game.achievement.total).length}`
+            );
 
+            $('#user-info .info .stats li:eq(0) span.data').text(
+              gameList
+                .filter((game) => game.achievement.unlocked > 0)
+                .reduce((acc, curr) => {
+                  return acc + parseInt(curr.achievement.unlocked);
+                }, 0)
+            );
+            if ($('#game-list .game-box[data-system="playstation"]').length > 0) {
+              $('#user-info .info .trophy li.platinum span').text(
+                gameList
+                  .filter((game) => game.system === 'playstation')
+                  .reduce((acc, curr) => {
+                    return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'P').length;
+                  }, 0)
+              );
+
+              $('#user-info .info .trophy li.gold span').text(
+                gameList
+                  .filter((game) => game.system === 'playstation')
+                  .reduce((acc, curr) => {
+                    return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'G').length;
+                  }, 0)
+              );
+
+              $('#user-info .info .trophy li.silver span').text(
+                gameList
+                  .filter((game) => game.system === 'playstation')
+                  .reduce((acc, curr) => {
+                    return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'S').length;
+                  }, 0)
+              );
+
+              $('#user-info .info .trophy li.bronze span').text(
+                gameList
+                  .filter((game) => game.system === 'playstation')
+                  .reduce((acc, curr) => {
+                    return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'B').length;
+                  }, 0)
+              );
+
+              $('#user-info .info .trophy').show();
+            } else {
+              $('#user-info .info .trophy').hide();
+            }
+            sort(elem, sortOptions());
             setTimeout(() => {
-              ipcRenderer.invoke('fetch-icon', imgName, list[game].steamappid || list[game].appid).then((localPath) => {
+              ipcRenderer.invoke('fetch-icon', imgName, game.steamappid || game.appid).then((localPath) => {
                 if (localPath) {
-                  const el = $(`#game-header-${list[game].appid}`);
+                  const el = $(`#game-header-${game.appid}`);
                   el.css('background', `url('${localPath}')`);
                 }
               });
             }, 0);
           }
         }
+      )
+      .then((list) => {
+        loadingElem.elem.hide();
 
-        let average_progress = progress_cache.length > 0 ? Math.floor(progress_cache.reduce((acc, curr) => acc + curr) / progress_cache.length) : 0;
-
-        $('#user-info .info .stats li:eq(2) span.data').text(average_progress);
-
-        $('#user-info .info .stats li:eq(1) span.data').text(list.filter((game) => game.achievement.unlocked == game.achievement.total).length);
-
-        $('#user-info .info .stats li:eq(0) span.data').text(
-          list
-            .filter((game) => game.achievement.unlocked > 0)
-            .reduce((acc, curr) => {
-              return acc + parseInt(curr.achievement.unlocked);
-            }, 0)
-        );
-
-        if ($('#game-list .game-box[data-system="playstation"]').length > 0) {
-          $('#user-info .info .trophy li.platinum span').text(
-            list
-              .filter((game) => game.system === 'playstation')
-              .reduce((acc, curr) => {
-                return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'P').length;
-              }, 0)
-          );
-
-          $('#user-info .info .trophy li.gold span').text(
-            list
-              .filter((game) => game.system === 'playstation')
-              .reduce((acc, curr) => {
-                return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'G').length;
-              }, 0)
-          );
-
-          $('#user-info .info .trophy li.silver span').text(
-            list
-              .filter((game) => game.system === 'playstation')
-              .reduce((acc, curr) => {
-                return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'S').length;
-              }, 0)
-          );
-
-          $('#user-info .info .trophy li.bronze span').text(
-            list
-              .filter((game) => game.system === 'playstation')
-              .reduce((acc, curr) => {
-                return acc + curr.achievement.list.filter((ach) => ach.Achieved && ach.type === 'B').length;
-              }, 0)
-          );
-
-          $('#user-info .info .trophy').show();
-        } else {
-          $('#user-info .info .trophy').hide();
+        if (list.length == 0) {
+          debug.log('No game found !');
+          $('#game-list .isEmpty').show();
+          return;
         }
+        ipcRenderer.sendSync('close-puppeteer');
+        debug.log('Populating game list ...');
 
-        $('#btn-game-config-cancel, #game-config .overlay').click(function () {
+        let elem = $('#game-list ul');
+
+        elem.find('.game-box').each(function () {
+          const appid = this.dataset.appid;
+          gameElements.set(appid, this);
+        });
+
+        $('#btn-game-config-cancel, #game-config .overlay').on('click', function () {
           self.onGameConfigCancelClick($(this));
         });
 
@@ -251,41 +287,38 @@ var app = {
           self.onGameConfigSaveClick($(this));
         });
 
-        $('#game-list .game-box').click(function () {
-          self.onGameBoxClick($(this), list);
-        });
-
-        $('#game-list .game-box .play-button').click(async function (e) {
-          e.stopPropagation();
-          self.onPlayButtonClick($(this));
-        });
-
-        $('#game-list .game-box .config-button').click(async function (e) {
-          e.stopPropagation();
-          self.onConfigButtonClick($(this), list, await exeList.get());
-        });
-
-        $('#game-config')
-          .find('.edit')
-          .click(async function (e) {
+        $('#game-list')
+          .on('click', '.game-box', function () {
+            self.onGameBoxClick($(this), gameList);
+          })
+          .on('click', '.game-box .play-button', async function (e) {
             e.stopPropagation();
-            let appid = parseInt($('#game-config .header').attr('title'));
-            let cfg = await exeList.get(appid);
-            let dialog = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
-              title: 'Choose the game executable',
-              buttonLabel: 'Select',
-              defaultPath: cfg.exe,
-              filters: [{ name: 'Executables', extensions: ['exe', 'bat'] }],
-              properties: ['openFile', 'showHiddenFiles', 'dontAddToRecent'],
-            });
-
-            if (dialog.filePaths.length > 0 && dialog.filePaths[0].length > 0) {
-              const filePath = dialog.filePaths[0];
-
-              $('#game-config').find('.constant').text(filePath);
-              $('#game-config').find('.constant').attr('title', filePath);
-            }
+            self.onPlayButtonClick($(this));
+          })
+          .on('click', '.game-box .config-button', async function (e) {
+            e.stopPropagation();
+            self.onConfigButtonClick($(this), gameList, await exeList.get());
           });
+
+        $('#game-config').on('click', '.edit', async function (e) {
+          e.stopPropagation();
+          let appid = parseInt($('#game-config .header').attr('title'));
+          let cfg = await exeList.get(appid);
+          let dialog = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
+            title: 'Choose the game executable',
+            buttonLabel: 'Select',
+            defaultPath: cfg.exe,
+            filters: [{ name: 'Executables', extensions: ['exe', 'bat'] }],
+            properties: ['openFile', 'showHiddenFiles', 'dontAddToRecent'],
+          });
+
+          if (dialog.filePaths.length > 0 && dialog.filePaths[0].length > 0) {
+            const filePath = dialog.filePaths[0];
+
+            $('#game-config').find('.constant').text(filePath);
+            $('#game-config').find('.constant').attr('title', filePath);
+          }
+        });
 
         $('#game-list .game-box').contextmenu(function (e) {
           e.preventDefault();
@@ -486,8 +519,6 @@ var app = {
           $(`#game-list .game-box[data-appid="${self.args.appid.toString().replace(/[^\d]/g, '')}"]`)
             .first()
             .trigger('click');
-
-        sort(elem, sortOptions());
       })
       .catch((err) => {
         loadingElem.elem.hide();
@@ -546,7 +577,7 @@ var app = {
       $('#achievement .wrapper > .header .stats .counter')
         .attr('data-count', game.achievement.unlocked)
         .attr('data-max', game.achievement.total)
-        .attr('data-percent', self.find('.progressBar').data('percent'));
+        .attr('data-percent', Math.floor((game.achievement.unlocked / game.achievement.total) * 100));
 
       if (game.system === 'playstation') {
         $('#achievement .wrapper > .header[data-system="playstation"] .trophy li.platinum span').text(

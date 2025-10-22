@@ -338,7 +338,7 @@ module.exports.getSavedAchievementsForAppid = async (option, requestedAppid, cac
   }
 };
 
-module.exports.makeList = async (option, callbackProgress = () => {}) => {
+module.exports.makeList = async (option, callbackProgress, onGame = () => {}) => {
   try {
     debug.log('Scanning for games ...');
 
@@ -348,8 +348,7 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
 
     if (appidList.length > 0) {
       let count = 0;
-
-      for (let appid of appidList) {
+      const promises = appidList.map(async (appid, index) => {
         startTime = Date.now();
         debug.log(`[${appid.appid}] loading data...`);
         let game = await this.getSavedAchievementsForAppid(option, appid, appidList);
@@ -361,15 +360,18 @@ module.exports.makeList = async (option, callbackProgress = () => {}) => {
         if (game && game.achievement && game.achievement.total > 0) {
           let duplicate = result.find((a) => a.appid == game.appid);
           if (duplicate && option.achievement.mergeDuplicate) {
+            //TODO: is this even needed?
           } else {
             result.push(game);
+            onGame?.(game);
           }
           debug.log(`[${game.appid}] ${game.name} took ${(endTime - startTime) / 1000} seconds.`);
         }
         count++;
         callbackProgress(Math.floor((count / appidList.length) * 100));
-        await new Promise((r) => setTimeout(r, 10));
-      }
+        await new Promise((r) => setTimeout(r, 25));
+      });
+      await Promise.all(promises);
     }
     callbackProgress(100);
     await new Promise((r) => setTimeout(r, 10));

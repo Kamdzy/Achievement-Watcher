@@ -214,43 +214,74 @@ main {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
 }
 
-#game-list .loading .title {
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 25px; /* footer height */
+  font-family: 'Raleway', sans-serif;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.loading .title {
   font-family: 'Raleway-bold';
   margin-bottom: 6px;
   text-align: center;
   height: 18px;
+  display: none;          /* hide title in small footer */
+  font-weight: bold;
+  font-size: 12px;
+  margin-bottom: 2px;
+  text-align: center;
 }
 
-#game-list .loading .progressBar {
+
+.loading .progressBar {
+  position: relative;
+  width: 75%;       /* 50% of footer */
+  min-width: 250px;
   height: 8px;
-  position: relative;
   background: #15202d;
-  padding: 5px 10px;
-  width: 100px;
-}
-
-#game-list .loading .progressBar > .meter {
-  width: 0%;
-  display: block;
-  height: 100%;
-  position: relative;
+  border-radius: 4px;
   overflow: hidden;
-  transition: 0.3s all linear;
-  background-image: linear-gradient(to bottom, #4969af, #375db3);
+  margin: 0 auto;
+  display: block;
+  box-sizing: border-box;
 }
 
-#game-list .loading .progressBar:before {
+.loading .progressBar .meter {
+  width: 0%;        /* updated by JS */
+  height: 100%;
+  background: linear-gradient(to right, #4969af, #375db3);
+  border-radius: inherit;
+  transition: width 0.3s linear;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* Percent text overlay */
+.loading .progressBar:before {
   content: attr(data-percent) '%';
-  font-size: 14px;
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%);
   left: 50%;
-  display: table;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
   color: #dedede;
-  z-index: 1;
-  text-shadow: rgba(0, 0, 0, 0.5) 3px 3px 3px;
-  font-family: 'Open-sans';
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Optional responsive tweaks */
+@media (max-width: 600px) {
+  .loading .progressBar {
+    height: 6px;
+  }
+  .loading .progressBar:before {
+    font-size: 9px;
+  }
 }
 
 #game-list > ul {

@@ -43,7 +43,7 @@ function clientLogOn() {
 
 const manifest = require('../package.json');
 const userData = app.getPath('userData');
-let lastScrape = Date.now();
+let currentlyscraping = false;
 let settingsJS = null;
 let configJS = null;
 let achievementsJS = null;
@@ -119,6 +119,7 @@ async function getSteamData(request) {
     if (type === 'data') {
       let info = { appid };
       await scrapeWithPuppeteer(info, { steamhunters: true });
+      currentlyscraping = false;
       while (!info.achievements) {
         await delay(500);
       }
@@ -127,6 +128,7 @@ async function getSteamData(request) {
     if (type === 'steamhunters') {
       let info = { appid };
       await scrapeWithPuppeteer(info, { steamhunters: true });
+      currentlyscraping = false;
       return info;
     }
     await clientLogOn();
@@ -161,6 +163,7 @@ async function getSteamData(request) {
 }
 
 async function closePuppeteer() {
+  currentlyscraping = false;
   if (!puppeteerWindow) puppeteerWindow = {};
   if (puppeteerWindow.page) await puppeteerWindow.page.close();
   if (puppeteerWindow.context) await puppeteerWindow.context.close();
@@ -416,10 +419,8 @@ async function ensureChromium() {
 }
 
 async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
-  //if (Date.now() - lastScrape < 3000) {
-  //  await delay(Math.floor(Math.random() * 1500) + (Date.now() - lastScrape));
-  //  lastScrape = Date.now();
-  //}
+  if (alternate && alternate.steamhunters) while (currentlyscraping) delay(100);
+  currentlyscraping = true;
   try {
     const installedChromePath = ChromeLauncher.Launcher.getInstallations()[0];
     const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : (await ensureChromium()).executablePath;
@@ -558,7 +559,7 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
       return data;
     });
     await delay(Math.floor(Math.random() * (1500 - 800 + 1)) + 800);
-    lastScrape = Date.now();
+
     await page2.goto(url1, { waitUntil: 'domcontentloaded' });
     info.icon = await page2.evaluate(() => {
       const el = document.querySelector('#js-assets-table');
@@ -990,6 +991,7 @@ async function createNotificationWindow(info) {
     position: configJS.overlay.position,
     scale: parseFloat(configJS.overlay.scale),
   };
+  if (MainWin) MainWin.webContents.send('achievement-unlock', { appid: info.appid, ach_data: info.a });
 
   const display = require('electron').screen.getPrimaryDisplay();
   const { width, height } = display.workAreaSize;
