@@ -286,7 +286,7 @@ main {
 
 #game-list > ul {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
   justify-items: center;
 }
 
@@ -1713,7 +1713,7 @@ main {
 }
 
 #game-list.view-portrait ul {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
 }
 #game-list.view-portrait ul > li {
   padding: 15px 15px;

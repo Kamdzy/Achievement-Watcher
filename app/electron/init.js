@@ -20,6 +20,7 @@ const minimist = require('minimist');
 const { XMLParser } = require('fast-xml-parser');
 const { exec, spawn } = require('child_process');
 const fs = require('fs');
+const semver = require('semver');
 const ipc = require(path.join(__dirname, 'ipc.js'));
 const player = require('sound-play');
 const { fetchIcon } = require(path.join(__dirname, '../parser/steam.js'));
@@ -1360,8 +1361,8 @@ try {
 
   autoUpdater.on('update-downloaded', async (info) => {
     await startEngines();
-    const skippedVersion = configJS.skippedVersion;
-    if (skippedVersion && skippedVersion <= info.version) {
+    const skippedVersion = configJS.general.skippedVersion;
+    if (skippedVersion.toLowerCase() !== 'none' && semver.gte(skippedVersion, info.version)) {
       return;
     }
     const { response } = await dialog.showMessageBox({
@@ -1376,7 +1377,7 @@ try {
 
     if (response === 0) autoUpdater.quitAndInstall();
     else if (response === 2) {
-      configJS.skippedVersion = info.version;
+      configJS.general.skippedVersion = info.version;
       settingsJS.save(configJS);
     }
   });

@@ -57,6 +57,27 @@ function getCommandLine(pid) {
   });
 }
 
+async function getParentProcess(pid) {
+  try {
+    const parentList = await WQL.promises.query({
+      select: ['ParentProcessId'],
+      from: 'Win32_Process',
+      where: `ProcessId = ${pid}`,
+    });
+    if (!parentList.length) return null;
+    const parentPid = parentList[0].ParentProcessId;
+
+    const info = await WQL.promises.query({
+      select: ['Name'],
+      from: 'Win32_Process',
+      where: `ProcessId = ${parentPid}`,
+    });
+    return info.length ? info[0].Name : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function init() {
   const emitter = new EventEmitter();
 
@@ -80,6 +101,9 @@ async function init() {
     if (!filepath) return;
     if (filter.mute.dir.some((dirpath) => path.parse(filepath).dir.toLowerCase().startsWith(dirpath.toLowerCase()))) return;
     if (filter.mute.file.some((bin) => bin.toLowerCase() === process.toLowerCase())) return;
+
+    const parent = await getParentProcess(pid);
+    if (!parent) return;
 
     const games = gameIndex.filter(
       (game) =>

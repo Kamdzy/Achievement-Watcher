@@ -110,7 +110,7 @@ var app = {
         app.errorExit(err, 'Error loading lang.');
       });
 
-    $('#user-info .info .name').text(self.config.username || os.userInfo().username || 'User');
+    $('#user-info .info .name').text(self.config.general.username || os.userInfo().username || 'User');
 
     let loadingElem = {
       elem: $('#main-footer .loading'),

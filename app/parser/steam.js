@@ -64,6 +64,7 @@ module.exports.scan = async (additionalSearch = []) => {
       path.join(process.env['APPDATA'], 'CreamAPI'),
       path.join(process.env['PROGRAMDATA'], 'Steam') + '/*',
       path.join(process.env['LOCALAPPDATA'], 'SKIDROW'),
+      path.join(process.env['LOCALAPPDATA'], 'anadius/LSX emu/achievement_watcher'),
     ];
 
     const mydocs = readRegistryStringAndExpand('HKCU', 'Software/Microsoft/Windows/CurrentVersion/Explorer/User Shell Folders', 'Personal');

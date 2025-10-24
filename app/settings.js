@@ -28,8 +28,12 @@ module.exports.load = () => {
       }
     }
 
-    if (typeof options.username !== 'string') {
-      options.username = os.userInfo().username || 'User';
+    if (typeof options.username !== 'string' && typeof options.general.username !== 'string') {
+      options.general.username = options.username || options.general.username || os.userInfo().username || 'User';
+    }
+
+    if (typeof options.general.skippedVersion !== 'string') {
+      options.general.skippedVersion = 'none';
     }
 
     // overlay / new notifications
@@ -286,7 +290,10 @@ module.exports.load = () => {
   } catch (err) {
     console.log(`failed to load settings: ${err}`);
     options = {
-      username: os.userInfo().username || 'User',
+      general: {
+        username: os.userInfo().username || 'User',
+        skippedVersion: 'none',
+      },
       overlay: {
         position: 'right-top',
         preset: 'default',

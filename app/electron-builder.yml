@@ -20,6 +20,7 @@ nsis:
   warningsAsErrors: false
   installerSidebar: left.bmp
   installerIcon: ../setup/resources/icon.ico
+  differentialPackage: true
 
 directories:
   app: .
