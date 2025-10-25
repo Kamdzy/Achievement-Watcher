@@ -75,7 +75,7 @@ function SpawnOverlayNotification(args) {
       stdio: 'ignore',
     }).unref();
   } else {
-    const execPath = path.join(appRoot, 'AchievementWatcher.exe'); // adjust for build path
+    const execPath = path.join(appRoot, 'Achievement Watcher.exe'); // adjust for build path
     spawn(execPath, args, {
       detached: true,
       stdio: ['ignore', process.stdout, process.stderr],

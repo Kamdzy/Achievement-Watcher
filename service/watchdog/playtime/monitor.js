@@ -2,7 +2,7 @@
 
 const os = require('os');
 const path = require('path');
-const fs = require('@xan105/fs');
+const fs = require('fs');
 const request = require('request-zero');
 const regedit = require('regodit');
 const WQL = require('wql-process-monitor');
@@ -22,6 +22,7 @@ const debug = new (require('@xan105/log'))({
 const appdataPath = process.env['APPDATA'];
 const blacklist = require('./filter.json');
 let gameIndex;
+let savedConfigs;
 
 const systemTempDir = os.tmpdir() || process.env['TEMP'] || process.env['TMP'];
 
@@ -83,6 +84,7 @@ async function init() {
 
   let nowPlaying = [];
   gameIndex = await getGameIndex();
+  await getSavedConfigs();
 
   await WQL.promises.createEventSink();
   const processMonitor = await WQL.promises.subscribe({
@@ -103,7 +105,7 @@ async function init() {
     if (filter.mute.file.some((bin) => bin.toLowerCase() === process.toLowerCase())) return;
 
     const parent = await getParentProcess(pid);
-    if (!parent) return;
+    //if (!parent) return;
 
     const games = gameIndex.filter(
       (game) =>
@@ -218,15 +220,13 @@ async function init() {
 async function addToGameIndex(game) {
   let userOverride;
   try {
-    userOverride = JSON.parse(await fs.readFile(path.join(appdataPath, 'Achievement Watcher/cfg', 'gameIndex.json'), 'utf8'));
+    userOverride = JSON.parse(fs.readFileSync(path.join(appdataPath, 'Achievement Watcher/cfg', 'gameIndex.json'), 'utf8'));
   } catch (err) {
     if (err.code === 'ENOENT') userOverride = [];
   }
   if (userOverride.find((g) => g.appid === game.appid)) return;
   userOverride.push(game);
-  await fs.writeFile(path.join(appdataPath, 'Achievement Watcher/cfg', 'gameIndex.json'), JSON.stringify(userOverride), 'utf8').catch((err) => {
-    debug.error(err);
-  });
+  fs.writeFileSync(path.join(appdataPath, 'Achievement Watcher/cfg', 'gameIndex.json'), JSON.stringify(userOverride), 'utf8');
   gameIndex.push(game);
   debug.log(`Added ${game.name} to GameIndex.json`);
 }
@@ -241,31 +241,21 @@ async function getGameIndex() {
     user: path.join(process.env['APPDATA'], 'Achievement Watcher/cfg', 'gameIndex.json'),
   };
 
-  let gameIndex, userOverride;
+  let gameIndex = [],
+    userOverride = [];
 
   try {
-    if (await fs.existsAndIsYoungerThan(filePath.cache, { timeUnit: 'd', time: 1 })) {
-      gameIndex = JSON.parse(await fs.readFile(filePath.cache, 'utf8'));
-    } else {
-      try {
-        gameIndex = (await request.getJson('https://api.xan105.com/v2/steam/gameindex')).data;
-        debug.log('[Playtime] gameIndex updated');
-        await fs.writeFile(filePath.cache, JSON.stringify(gameIndex), 'utf8').catch((err) => {
-          debug.error(err);
-        });
-      } catch (err) {
-        debug.error(err);
-        gameIndex = JSON.parse(await fs.readFile(filePath.cache, 'utf8'));
-      }
+    if (fs.existsSync(filePath.cache)) {
+      gameIndex = JSON.parse(fs.readFileSync(filePath.cache, 'utf8'));
     }
-    debug.log(`[Playtime] gameIndex loaded ! ${gameIndex.length} game(s)`);
+    if (gameIndex) debug.log(`[Playtime] gameIndex loaded ! ${gameIndex.length} game(s)`);
   } catch (err) {
     debug.error(err);
     gameIndex = [];
   }
 
   try {
-    userOverride = JSON.parse(await fs.readFile(filePath.user, 'utf8'));
+    userOverride = JSON.parse(fs.readFileSync(filePath.user, 'utf8'));
     //shouldArrayOfObjWithProperties(userOverride, ['appid', 'name', 'binary', 'icon']);
     debug.log(`[Playtime] user gameIndex loaded ! ${userOverride.length} override(s)`);
   } catch (err) {
@@ -276,6 +266,20 @@ async function getGameIndex() {
   //Merge (assign) arrB in arrA using prop as unique key
   const mergeArrayOfObj = (arrA, arrB, prop) => arrA.filter((a) => !arrB.find((b) => a[prop] === b[prop])).concat(arrB);
   return mergeArrayOfObj(gameIndex, userOverride, 'appid');
+}
+
+async function getSavedConfigs() {
+  const filepath = path.join(process.env['APPDATA'], 'Achievement Watcher/cfg', 'exeList.json');
+
+  try {
+    if (fs.existsSync(filepath)) {
+      savedConfigs = JSON.parse(fs.readFileSync(filepath, 'utf8'));
+      return;
+    }
+  } catch (e) {
+    debug.log(e);
+  }
+  savedConfigs = [];
 }
 
 module.exports = { init };
