@@ -2,7 +2,8 @@
 
 const os = require('os');
 const path = require('path');
-const fs = require('fs');
+const nativeFs = require('fs');
+const fs = require('../fs-compat');
 const request = require('request-zero');
 const regedit = require('regodit');
 const WQL = require('wql-process-monitor');
