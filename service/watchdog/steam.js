@@ -2,7 +2,7 @@
 
 const path = require('path');
 const urlParser = require('url');
-const fs = require('@xan105/fs');
+const fs = require('../../lib/fs-compat');
 const request = require('request-zero');
 const steamLang = require('./steam.json');
 const htmlParser = require('node-html-parser');

@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const fs = require('@xan105/fs');
+const fs = require('../../../lib/fs-compat');
 const glob = require('fast-glob');
 const ini = require('@xan105/ini');
 
