@@ -1,11 +1,13 @@
+import vdf from "@node-steam/vdf";
+import { createRequire } from 'module';
 import path from "path";
-import zlib from "zlib";
-import { promisify } from 'util';
+import request from "request-zero";
 import Steam from "steam";
 import Schema from "steam-resources";
-import vdf from "@node-steam/vdf";
-import request from "request-zero";
-import * as fs from "@xan105/fs";
+import { promisify } from 'util';
+import zlib from "zlib";
+const requireC = createRequire(import.meta.url);
+const fs = requireC('../../fs-compat.cjs');
 
 import { require } from "../../util/esm.js";
 const { folder } = require("./config.json");

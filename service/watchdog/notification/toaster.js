@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('path');
-const fs = require('../../../lib/fs-compat');
+const fs = require('../fs-compat');
 const userShellFolder = require('../util/userShellFolder.js');
 const videoCapture = require('@xan105/video-capture');
 const screenshot = require('@xan105/screenshot');

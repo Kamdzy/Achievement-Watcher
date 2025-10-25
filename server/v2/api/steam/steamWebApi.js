@@ -1,8 +1,10 @@
-import * as fs from "@xan105/fs";
+import { createRequire } from 'module';
 import path from "path";
 import request from "request-zero";
 import SteamID from "steamid";
 import { unescape } from "../../util/xml.js";
+const requireC = createRequire(import.meta.url);
+const fs = requireC('../../fs-compat.cjs');
 
 import getHiddenDescriptionFromCacheOrRemote from "./3rdparty/achievementstats.com.js";
 import productInfoRequest, { findBinary } from "./steamClient.js";

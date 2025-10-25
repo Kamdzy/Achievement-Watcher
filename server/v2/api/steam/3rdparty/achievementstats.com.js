@@ -1,6 +1,8 @@
-import * as fs from "@xan105/fs";
+import { createRequire } from 'module';
 import path from "path";
 import request from "request-zero";
+const requireC = createRequire(import.meta.url);
+const fs = requireC('../../../fs-compat.cjs');
 
 import { require } from "../../../util/esm.js";
 const { folder } = require("./config.json");

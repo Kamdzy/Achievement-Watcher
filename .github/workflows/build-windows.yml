@@ -502,6 +502,18 @@ jobs:
           $pkg | ConvertTo-Json -Depth 100 | Set-Content $pkgPath -Encoding UTF8
           Write-Host "Package.json updated successfully"
 
+      # 13.5 Ensure fs-compat is packaged with each artifact
+      - name: Copy fs-compat into package folders
+        shell: pwsh
+        run: |
+          Write-Host "Copying lib/fs-compat.js into package folders..."
+          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\app\fs-compat.js" -Force
+          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\service\watchdog\fs-compat.js" -Force
+          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\server\v2\fs-compat.js" -Force
+          # also provide a CommonJS copy for ESM server modules that import via createRequire
+          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\server\v2\fs-compat.cjs" -Force
+          Write-Host "fs-compat copied"
+
       # 14. Build Windows installer
       - name: Build installer
         working-directory: app

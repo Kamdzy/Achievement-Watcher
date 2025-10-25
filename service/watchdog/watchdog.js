@@ -12,7 +12,13 @@ const moment = require('moment');
 const websocket = require('./websocket.js');
 const processPriority = require('./util/priority.js');
 const fs = require('fs');
-const reg = require('native-reg');
+let reg;
+try {
+  reg = require('native-reg');
+} catch (e) {
+  // fallback to local shim when native-reg isn't available (packaged watchdog)
+  reg = require('./native-reg');
+}
 const request = require('request-zero');
 const settings = require('./settings.js');
 const monitor = require('./monitor.js');

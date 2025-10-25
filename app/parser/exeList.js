@@ -2,7 +2,7 @@
 
 const remote = require('@electron/remote');
 const path = require('path');
-const ffs = require('@xan105/fs');
+const ffs = require('../fs-compat');
 
 const file = path.join(remote.app.getPath('userData'), 'cfg/exeList.db');
 

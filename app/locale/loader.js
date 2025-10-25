@@ -1,10 +1,12 @@
-'use strict';
+"use strict";
 
 const remote = require('@electron/remote');
+const path = require('path');
 
 const merge = require('deepmerge');
-const ffs = require('@xan105/fs');
+const ffs = require('../fs-compat');
 
+const appPath = path.join(__dirname, '../');
 const langDir = path.join(appPath, 'locale/lang');
 const steamLanguages = require(path.join(appPath, 'locale/steam.json'));
 

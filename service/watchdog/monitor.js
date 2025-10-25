@@ -4,7 +4,7 @@ const path = require('path');
 const ini = require('@xan105/ini');
 const parentFind = require('find-up');
 const omit = require('lodash.omit');
-const fs = require('../../lib/fs-compat');
+const fs = require('./fs-compat');
 const regedit = require('regodit');
 const sse = require('./sse.js');
 

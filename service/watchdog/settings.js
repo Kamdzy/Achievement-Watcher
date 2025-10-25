@@ -3,7 +3,7 @@
 const path = require('path');
 const ini = require('@xan105/ini');
 const osLocale = require('os-locale');
-const fs = require('../../lib/fs-compat');
+const fs = require('./fs-compat');
 const steamLang = require('./steam.json');
 const aes = require('./util/aes.js');
 
