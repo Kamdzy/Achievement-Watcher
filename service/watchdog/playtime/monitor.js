@@ -2,8 +2,8 @@
 
 const os = require('os');
 const path = require('path');
-const nativeFs = require('fs');
-const fs = require('../fs-compat');
+const fs = require('fs');
+const fsCompat = require('../fs-compat');
 const request = require('request-zero');
 const regedit = require('regodit');
 const WQL = require('wql-process-monitor');
@@ -246,7 +246,7 @@ async function getGameIndex() {
     userOverride = [];
 
   try {
-    if (await fs.existsAndIsYoungerThan(filePath.cache, { timeUnit: 'd', time: 1 })) {
+    if (await fsCompat.existsAndIsYoungerThan(filePath.cache, { timeUnit: 'd', time: 1 })) {
       gameIndex = JSON.parse(fs.readFileSync(filePath.cache, 'utf8'));
     } else {
       try {
@@ -269,7 +269,7 @@ async function getGameIndex() {
   }
 
   try {
-    userOverride = JSON.parse(fs.readFileSync(filePath.user, 'utf8'));
+  userOverride = JSON.parse(fs.readFileSync(filePath.user, 'utf8'));
     //shouldArrayOfObjWithProperties(userOverride, ['appid', 'name', 'binary', 'icon']);
     debug.log(`[Playtime] user gameIndex loaded ! ${userOverride.length} override(s)`);
   } catch (err) {
