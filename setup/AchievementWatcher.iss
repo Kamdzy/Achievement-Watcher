@@ -624,12 +624,19 @@ begin
    if(CurStep = ssInstall) then begin
    end;
 
-   if(CurStep = ssPostInstall) then begin;
-    //Old files clean up
-    Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    DelTree(ExpandConstant('{app}')+'\watchdog.exe', False, True, False);
-    DelTree(ExpandConstant('{app}')+'\updater.exe', False, True, False);
-   end;
+  if(CurStep = ssPostInstall) then begin;
+   // Old files clean up - kill watchdog.exe if present
+   Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+   // Safely stop only the node.exe that belongs to this installation (avoid killing all node processes)
+   var NodePath, PSParams: String;
+   NodePath := ExpandConstant('{app}\node\node.exe');
+   PSParams := Format('-NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -ieq ''%s'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"', [NodePath]);
+   Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+   DelTree(ExpandConstant('{app}')+'\watchdog.exe', False, True, False);
+   DelTree(ExpandConstant('{app}')+'\updater.exe', False, True, False);
+  end;
 
    if(CurStep = ssDone) then begin;
    end;
@@ -640,5 +647,10 @@ var
   ResultCode: Integer;
 begin
   Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec('taskkill.exe', '/f /im node.exe /t', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+  // Safely stop only the node.exe that belongs to this installation (avoid killing all node processes)
+  var NodePath, PSParams: String;
+  NodePath := ExpandConstant('{app}\node\node.exe');
+  PSParams := Format('-NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -ieq ''%s'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"', [NodePath]);
+  Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
