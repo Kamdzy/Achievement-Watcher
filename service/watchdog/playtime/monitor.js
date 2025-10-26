@@ -269,7 +269,7 @@ async function getGameIndex() {
   }
 
   try {
-  userOverride = JSON.parse(fs.readFileSync(filePath.user, 'utf8'));
+    userOverride = JSON.parse(fs.readFileSync(filePath.user, 'utf8'));
     //shouldArrayOfObjWithProperties(userOverride, ['appid', 'name', 'binary', 'icon']);
     debug.log(`[Playtime] user gameIndex loaded ! ${userOverride.length} override(s)`);
   } catch (err) {
