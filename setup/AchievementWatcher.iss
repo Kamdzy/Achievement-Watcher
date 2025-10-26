@@ -620,25 +620,20 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var 
   ResultCode: Integer;
-  PSParams: String;
 begin
    if(CurStep = ssInstall) then begin
    end;
 
   if(CurStep = ssPostInstall) then begin
-   // Old files clean up - kill watchdog.exe if present
-   Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-   // Safely stop only the node.exe that belongs to Achievement Watcher
-   PSParams := '-NoProfile -ExecutionPolicy Bypass -NonInteractive -Command "' +
-               'Get-Process -Name node -ErrorAction SilentlyContinue | ' +
-               'Where-Object { (Get-CimInstance Win32_Process -Filter \"ProcessId = $($_.Id)\").CommandLine -like ''*achievement*watchdog*'' } | ' +
-               'Stop-Process -Force"';
-   
-   Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-   DelTree(ExpandConstant('{app}')+'\watchdog.exe', False, True, False);
-   DelTree(ExpandConstant('{app}')+'\updater.exe', False, True, False);
+    // Kill old watchdog.exe if present
+    Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    
+    // Kill node.exe processes with "watchdog" in command line
+    Exec('cmd.exe', '/c wmic process where "name=''node.exe'' and CommandLine like ''%watchdog%''" call terminate', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    
+    // Clean up old files
+    DelTree(ExpandConstant('{app}')+'\watchdog.exe', False, True, False);
+    DelTree(ExpandConstant('{app}')+'\updater.exe', False, True, False);
   end;
 
    if(CurStep = ssDone) then begin
@@ -648,15 +643,10 @@ end;
 procedure InitializeUninstallProgressForm();
 var 
   ResultCode: Integer;
-  PSParams: String;
 begin
+  // Kill old watchdog.exe if present
   Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-
-  // Safely stop only the node.exe that belongs to Achievement Watcher
-  PSParams := '-NoProfile -ExecutionPolicy Bypass -NonInteractive -Command "' +
-              'Get-Process -Name node -ErrorAction SilentlyContinue | ' +
-              'Where-Object { (Get-CimInstance Win32_Process -Filter \"ProcessId = $($_.Id)\").CommandLine -like ''*achievement*watchdog*'' } | ' +
-              'Stop-Process -Force"';
   
-  Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Kill node.exe processes with "watchdog" in command line
+  Exec('cmd.exe', '/c wmic process where "name=''node.exe'' and CommandLine like ''%watchdog%''" call terminate', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
