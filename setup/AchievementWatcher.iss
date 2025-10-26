@@ -628,11 +628,25 @@ begin
    // Old files clean up - kill watchdog.exe if present
    Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-   // Safely stop only the node.exe that belongs to this installation (avoid killing all node processes)
-   var NodePath, PSParams: String;
-   NodePath := ExpandConstant('{app}\node\node.exe');
-   PSParams := Format('-NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -ieq ''%s'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"', [NodePath]);
-   Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Safely stop only the node.exe that belongs to this installation (avoid killing all node processes)
+  var NodePath, PSParams, LogPath: String;
+  NodePath := ExpandConstant('{app}\node\node.exe');
+  LogPath := ExpandConstant('{tmp}\node-kill.log');
+  // Build a PowerShell command that logs candidates and attempts to stop only matching processes.
+  PSParams := '-NoProfile -ExecutionPolicy Bypass -NonInteractive -Command "' +
+          '$node=''' + NodePath + ''';' +
+          ' $log=''' + LogPath + ''';' +
+          ' $candidates = Get-CimInstance Win32_Process | Where-Object { ' +
+          '($_.ExecutablePath -and ($_.ExecutablePath -ieq $node)) -or ' +
+          '($_.CommandLine -and $_.CommandLine -match [regex]::Escape($node)) -or ' +
+          '($_.CommandLine -and $_.CommandLine -match ''watchdog'') ' +
+          '}; ' +
+          ' ("NodePath: {0}" -f $node) | Out-File -FilePath $log -Encoding UTF8; ' +
+          ' $candidates | ForEach-Object { ("PID: {0} Path: {1} Cmd: {2}" -f $_.ProcessId,$_.ExecutablePath,$_.CommandLine) } | Out-File -FilePath $log -Append -Encoding UTF8; ' +
+          ' $candidates | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+          ' ("Stopped: " + ($candidates | Select-Object -ExpandProperty ProcessId -ErrorAction SilentlyContinue -Join ",")) | Out-File -FilePath $log -Append -Encoding UTF8; ' +
+          '"';
+  Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
    DelTree(ExpandConstant('{app}')+'\watchdog.exe', False, True, False);
    DelTree(ExpandConstant('{app}')+'\updater.exe', False, True, False);
@@ -649,8 +663,21 @@ begin
   Exec('taskkill.exe', '/f /im watchdog.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
   // Safely stop only the node.exe that belongs to this installation (avoid killing all node processes)
-  var NodePath, PSParams: String;
+  var NodePath, PSParams, LogPath: String;
   NodePath := ExpandConstant('{app}\node\node.exe');
-  PSParams := Format('-NoProfile -NonInteractive -Command "Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -ieq ''%s'' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"', [NodePath]);
+  LogPath := ExpandConstant('{tmp}\node-kill.log');
+  PSParams := '-NoProfile -ExecutionPolicy Bypass -NonInteractive -Command "' +
+              '$node=''' + NodePath + ''';' +
+              ' $log=''' + LogPath + ''';' +
+              ' $candidates = Get-CimInstance Win32_Process | Where-Object { ' +
+              '($_.ExecutablePath -and ($_.ExecutablePath -ieq $node)) -or ' +
+              '($_.CommandLine -and $_.CommandLine -match [regex]::Escape($node)) -or ' +
+              '($_.CommandLine -and $_.CommandLine -match ''watchdog'') ' +
+              '}; ' +
+              ' ("NodePath: {0}" -f $node) | Out-File -FilePath $log -Encoding UTF8; ' +
+              ' $candidates | ForEach-Object { ("PID: {0} Path: {1} Cmd: {2}" -f $_.ProcessId,$_.ExecutablePath,$_.CommandLine) } | Out-File -FilePath $log -Append -Encoding UTF8; ' +
+              ' $candidates | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+              ' ("Stopped: " + ($candidates | Select-Object -ExpandProperty ProcessId -ErrorAction SilentlyContinue -Join ",")) | Out-File -FilePath $log -Append -Encoding UTF8; ' +
+              '"';
   Exec('powershell.exe', PSParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
