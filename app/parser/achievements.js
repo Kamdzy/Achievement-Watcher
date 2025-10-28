@@ -160,6 +160,7 @@ module.exports.saveGameToCache = async (info, lang) => {
     default:
       let cfg = info.game;
       cfg.lang = lang;
+      cfg.appid = info.appid;
       steam.saveGameToCache(cfg);
   }
 };
@@ -275,6 +276,7 @@ module.exports.getSavedAchievementsForAppid = async (option, requestedAppid, cac
                 root[i].Time ||
                 root[i].earned_time ||
                 root[i].unlock_time ||
+                root[i].timestamp ||
                 0,
             };
 
@@ -343,12 +345,13 @@ module.exports.makeList = async (option, callbackProgress, onGame = () => {}) =>
     debug.log('Scanning for games ...');
 
     let result = [];
-    let startTime, endTime;
+
     let appidList = await discover(option.achievement_source, option.steam.main);
 
     if (appidList.length > 0) {
       let count = 0;
       const promises = appidList.map(async (appid, index) => {
+        let startTime, endTime;
         startTime = Date.now();
         debug.log(`[${appid.appid}] loading data...`);
         let game = await this.getSavedAchievementsForAppid(option, appid, appidList);
@@ -363,13 +366,12 @@ module.exports.makeList = async (option, callbackProgress, onGame = () => {}) =>
             //TODO: is this even needed?
           } else {
             result.push(game);
-            onGame?.(game);
+            requestAnimationFrame(() => onGame?.(game));
           }
           debug.log(`[${game.appid}] ${game.name} took ${(endTime - startTime) / 1000} seconds.`);
         }
         count++;
         callbackProgress(Math.floor((count / appidList.length) * 100));
-        await new Promise((r) => setTimeout(r, 25));
       });
       await Promise.all(promises);
     }

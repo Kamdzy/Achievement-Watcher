@@ -133,8 +133,13 @@ async function getSteamData(request) {
       return info;
     }
     await clientLogOn();
+    const storeURL = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=us&l=en`;
+    const storeRes = await fetch(storeURL);
+    const json = await storeRes.json();
+    const storeData = json[appid] && json[appid].data;
     const { apps, packages, unknownApps, unknownPackages } = await client.getProductInfo([appid], [], false);
     const appInfo = apps[appid]?.appinfo || apps[0]?.appinfo;
+
     switch (type) {
       case 'name':
         return appInfo?.common?.name;
@@ -151,8 +156,10 @@ async function getSteamData(request) {
           name: appInfo.common.name,
           isGame: appInfo?.common?.type?.toLowerCase() === 'game',
           icon: appInfo.common.icon,
-          header: appInfo.common.header_image?.english || appInfo.common.library_assets_full?.library_header?.image?.english,
+          header:
+            appInfo.common.header_image?.english || appInfo.common.library_assets_full?.library_header?.image?.english || storeData.header_image,
           portrait: appInfo.common.library_assets_full?.library_capsule?.image?.english,
+          background: storeData.background.replace(/(\?|&)t=\d+$/, ''),
         };
     }
 
@@ -201,8 +208,13 @@ async function getCachedData(info) {
         info.description = info.a?.displayName;
         return;
       }
-      let data = await getSteamData({ appid: info.appid, type: 'steamhunters' });
-      info.game = data;
+      const [data, com] = await Promise.all([
+        getSteamData({ appid: info.appid, type: 'steamhunters' }),
+        getSteamData({ appid: info.appid, type: 'common' }),
+      ]);
+      info.game = com;
+      info.game.achievements = data.achievements;
+
       await achievementsJS.saveGameToCache(info, configJS.achievement.lang);
       info.a = info.game.achievements.find((ac) => ac.name === String(info.ach));
       info.description = info.a?.displayName;
@@ -980,7 +992,6 @@ async function createNotificationWindow(info) {
   isNotificationShowing = true;
 
   await startEngines();
-  await clientLogOn();
   await getCachedData(info);
   closePuppeteer();
   const message = {
@@ -1083,13 +1094,13 @@ async function createNotificationWindow(info) {
   notificationWindow.setIgnoreMouseEvents(true, { forward: true });
   notificationWindow.info = info;
 
+  let soundFile;
   if (configJS.notification_toast.customToastAudio === '2' || configJS.notification_toast.customToastAudio === '1') {
     let toastAudio = require(path.join(__dirname, '../util/toastAudio.js'));
-    let soundFile =
+    soundFile =
       configJS.notification_toast.customToastAudio === '1'
         ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())
         : toastAudio.getCustom();
-    player.play(soundFile);
   }
   notificationWindow.webContents.on('did-finish-load', () => {
     notificationWindow.showInactive();
@@ -1102,6 +1113,7 @@ async function createNotificationWindow(info) {
       scale,
     });
     createOverlayWindow({ appid: info.appid, action: 'refresh' });
+    player.play(soundFile);
   });
 
   notificationWindow.on('closed', async () => {
@@ -1159,7 +1171,6 @@ async function createPlaytimeWindow(info) {
   playtimeWindow.setFocusable(false);
 
   await startEngines();
-  await clientLogOn();
   await getCachedData(info);
   closePuppeteer();
   info.headerUrl = pathToFileURL(await fetchIcon(info.game.img.header, info.appid)).href;

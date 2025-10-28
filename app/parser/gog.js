@@ -54,7 +54,10 @@ module.exports.scan = async (dir) => {
   }
 
   try {
-    for (let dir of await glob(path.join(process.env['APPDATA'], 'NemirtingasGalaxyEmu', '*/*/'), { onlyDirectories: true, absolute: true })) {
+    for (let dir of await glob(path.join(process.env['APPDATA'], 'NemirtingasGalaxyEmu', '*/*/').replace(/\\/g, '/'), {
+      onlyDirectories: true,
+      absolute: true,
+    })) {
       let game = {
         appid: path.parse(dir).name,
         source: 'gog',

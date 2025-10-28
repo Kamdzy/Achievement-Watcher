@@ -1,5 +1,5 @@
 const { execFile } = require('child_process');
-const { HKEY, enumerateKeys, enumerateValues } = require('registry-js');
+const { HKEY, enumerateValues, enumerateKeys, setValue, createKey } = require('registry-js');
 
 const HIVE_ALIAS = {
   HKCU: 'HKEY_CURRENT_USER',
@@ -15,37 +15,33 @@ const HIVE_ALIAS = {
 };
 
 function writeRegistryString(hive, keyPath, valueName, value) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        `Set-ItemProperty -Path "${hive}:\\${keyPath.replace(/\//g, '\\')}" -Name "${valueName || '(default)'}" -Value "${value}"`,
-      ],
-      { windowsHide: true },
-      (error) => (error ? reject(error) : resolve())
-    );
-  });
+  const hiveEnum = hkeyFromString(hive);
+  if (!hiveEnum) throw new Error(`Unsupported hive: ${hive}`);
+
+  const normalizedKey = keyPath.replace(/\//g, '\\');
+
+  // Default value is represented by "" (empty string) not "(default)"
+  const name = valueName || '';
+  createKey(hiveEnum, normalizedKey);
+
+  const ok = setValue(hiveEnum, normalizedKey, name, 'REG_SZ', String(value));
+  if (!ok) throw new Error(`Failed to set registry value ${hive}\\${keyPath}\\${name}`);
 }
 
 function writeRegistryDword(hive, keyPath, valueName, value) {
-  return new Promise((resolve, reject) => {
-    execFile(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        `Set-ItemProperty -Path "${hive}:\\${keyPath.replace(/\//g, '\\')}" -Name "${valueName}" -Value ${value} -Type DWord`,
-      ],
-      { windowsHide: true },
-      (error) => (error ? reject(error) : resolve())
-    );
-  });
+  const hiveEnum = hkeyFromString(hive);
+  if (!hiveEnum) throw new Error(`Unsupported hive: ${hive}`);
+
+  const normalizedKey = keyPath.replace(/\//g, '\\');
+
+  const name = valueName || ''; // "" = (Default) value
+  createKey(hiveEnum, normalizedKey);
+
+  // REG_DWORD expects a string, even though it’s numeric
+  const ok = setValue(hiveEnum, normalizedKey, name, 'REG_DWORD', String(value));
+  if (!ok) {
+    throw new Error(`Failed to set DWORD value ${hive}\\${keyPath}\\${name} = ${value}`);
+  }
 }
 
 function ListRegistryAllValues(hive, key) {

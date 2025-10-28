@@ -56,7 +56,10 @@ module.exports.scan = async (dir) => {
   }
 
   try {
-    for (let dir of await glob(path.join(process.env['APPDATA'], 'NemirtingasEpicEmu', '*/*/'), { onlyDirectories: true, absolute: true })) {
+    for (let dir of await glob(path.join(process.env['APPDATA'], 'NemirtingasEpicEmu', '*/*/').replace(/\\/g, '/'), {
+      onlyDirectories: true,
+      absolute: true,
+    })) {
       let game = {
         appid: path.parse(dir).name,
         source: 'epic',
@@ -65,6 +68,7 @@ module.exports.scan = async (dir) => {
           path: dir,
         },
       };
+      if (game.appid.toLowerCase() === 'invalidappid') continue;
 
       let steamid;
       let cached = cache.find((g) => g.epicid === game.appid);

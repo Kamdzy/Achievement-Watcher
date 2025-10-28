@@ -129,7 +129,7 @@ var app = {
     $('#sort-box').fadeTo('fast', 1).css('pointer-events', 'initial');
     $('#search-bar').fadeTo('fast', 1).css('pointer-events', 'initial');
     $('title-bar')[0].inSettings = false;
-
+    gameList = [];
     achievements
       .makeList(
         self.config,

@@ -195,10 +195,10 @@ module.exports.saveGameToCache = async (cfg) => {
     appid: cfg.appid,
     binary: null,
     img: {
-      header: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/header.jpg`,
-      background: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/page_bg_generated_v6b.jpg`,
-      portrait: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/library_600x900.jpg`,
-      icon: `https://cdn.akamai.steamstatic.com/steam/apps/${cfg.appid}/${cfg.icon}.jpg`,
+      header: cfg.header,
+      background: cfg.background,
+      portrait: cfg.portrait,
+      icon: cfg.icon,
     },
     achievement: {
       total: cfg.achievements.length,
@@ -774,12 +774,22 @@ function GetMissingData(data) {
 }
 
 const fetchIcon = (module.exports.fetchIcon = async (url, appID) => {
+  let validUrl;
+  let filePath;
   try {
     const cache = path.join(process.env['APPDATA'], `Achievement Watcher/steam_cache/icon/${appID}`);
-
+    let filename = path.parse(url).base;
+    filePath = path.join(cache, filename);
+    if (fs.existsSync(filePath)) return filePath;
+    let exts = ['.jpg', '.png'];
+    if (!url.endsWith('.jpg') && !url.endsWith('.png'))
+      for (let ext of exts) {
+        filePath = path.join(cache, filename + ext);
+        if (fs.existsSync(filePath)) return filePath;
+      }
     //legacy url are full urls, check if they are still valid
     let isValid = false;
-    let validUrl = url;
+    validUrl = url;
     try {
       new URL(url);
       const res = await request(url, { method: 'HEAD' });
@@ -801,16 +811,28 @@ const fetchIcon = (module.exports.fetchIcon = async (url, appID) => {
           : url
       );
 
-    const filename = path.parse(urlParser.parse(validUrl).pathname).base;
+    filename = path.parse(urlParser.parse(validUrl).pathname).base;
 
-    let filePath = path.join(cache, filename);
+    filePath = path.join(cache, filename);
 
     if (fs.existsSync(filePath)) {
       return filePath;
     } else {
-      return (await request.download(validUrl, cache)).path;
+      return (await request.download(validUrl, cache, { validateFileSize: false })).path;
     }
   } catch (err) {
+    if (err.code === 'ESIZEMISMATCH') {
+      try {
+        const fetch = require('node-fetch');
+        const res = await fetch(validUrl);
+        if (!res.ok) return validUrl;
+        const buffer = Buffer.from(await res.arrayBuffer());
+        fs.writeFileSync(filePath, buffer);
+        return filePath;
+      } catch (e) {
+        return validUrl;
+      }
+    }
     return url;
   }
 });
