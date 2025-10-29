@@ -251,9 +251,13 @@ var app = {
             }
             sort(elem, sortOptions());
             setTimeout(() => {
+              const el = $(`#game-header-${game.appid}`);
+              if (game.source === 'RPCS3 Emulator') {
+                el.css('background', `url('${game.img.header}')`);
+                return;
+              }
               ipcRenderer.invoke('fetch-icon', imgName, game.steamappid || game.appid).then((localPath) => {
                 if (localPath) {
-                  const el = $(`#game-header-${game.appid}`);
                   el.css('background', `url('${localPath}')`);
                 }
               });
@@ -653,7 +657,7 @@ var app = {
                                     <div class="glow fx"></div>
                                   </div>
                               </div>
-                              <div class="icon" id="achievement-${achievement.name
+                              <div class="icon" id="achievement-${String(achievement.name)
                                 .replace(/\s+/g, '_')
                                 .replace(/[^\w\-]/g, '')}" style="background: url('${
           pathToFileURL(path.join(appPath, 'resources/img/loading.gif')).href
@@ -720,14 +724,21 @@ var app = {
       const preloadPromises = game.achievement.list.map(async (achievement) => {
         const hash = achievement.Achieved ? achievement.icon : achievement.icongray;
         let localPathPromise;
-        if (imageCache.has(hash)) {
-          localPathPromise = imageCache.get(hash);
-        } else {
-          localPathPromise = ipcRenderer.invoke('fetch-icon', hash, game.steamappid || game.appid);
-          imageCache.set(hash, localPathPromise);
+        if (game.source !== 'RPCS3 Emulator') {
+          if (imageCache.has(hash)) {
+            localPathPromise = imageCache.get(hash);
+          } else {
+            localPathPromise = ipcRenderer.invoke('fetch-icon', hash, game.steamappid || game.appid);
+            imageCache.set(hash, localPathPromise);
+          }
         }
-        const localPath = await localPathPromise;
-        await setAchievementImage(`#achievement-${achievement.name.replace(/\s+/g, '_').replace(/[^\w\-]/g, '')}`, localPath);
+        const localPath = game.source === 'RPCS3 Emulator' ? hash : await localPathPromise;
+        await setAchievementImage(
+          `#achievement-${String(achievement.name)
+            .replace(/\s+/g, '_')
+            .replace(/[^\w\-]/g, '')}`,
+          localPath
+        );
       });
 
       if ($('#unlock > .header .sort-ach .sort.time').hasClass('show') && localStorage.sortAchByTime === 'true') {

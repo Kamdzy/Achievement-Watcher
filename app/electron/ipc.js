@@ -49,7 +49,10 @@ ipcMain.on('close-notification-window', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
 
   if (win && !win.isDestroyed()) {
-    win.close();
+    const wc = win.webContents;
+    wc.forcefullyCrashRenderer();
+    win.destroy();
+    win.emit('closed');
   }
 });
 

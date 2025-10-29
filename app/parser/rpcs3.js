@@ -71,6 +71,7 @@ module.exports.getGameData = async (dir) => {
       system: 'playstation',
       img: {
         header: 'file:///' + path.join(dir, 'ICON0.PNG').replace(/\\/g, '/'),
+        //TODO: get background/portrait images
       },
       achievement: {
         total: schema.trophy.length,

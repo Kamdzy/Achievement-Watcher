@@ -87,13 +87,14 @@ module.exports = async (message, option = {}) => {
       if (options.transport.chromium) {
         const watchdog = require('../watchdog.js');
         let t = options.gntpLabel && options.gntpLabel === 'Playtime' ? 'playtime' : message.progress ? 'progress' : 'achievement';
-        watchdog.SpawnOverlayNotification([
-          `--wintype=${t}`,
-          `--appid=${message.appid}`,
-          `--ach=${message.achievementName}`,
-          `--description=${message.achievementDescription}`,
-          `--count=${message.progress?.current}/${message.progress?.max}`,
-        ]);
+        if ((t === 'playtime' && options.playtime) || (t === 'progress' && options.notification.notifyOnProgress) || t === 'achievement')
+          watchdog.SpawnOverlayNotification([
+            `--wintype=${t}`,
+            `--appid=${message.appid}`,
+            `--ach=${message.achievementName}`,
+            `--description=${message.achievementDescription}`,
+            `--count=${message.progress?.current}/${message.progress?.max}`,
+          ]);
       }
 
       if (options.transport.toast) {

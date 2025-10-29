@@ -372,7 +372,7 @@ ipcMain.on('fetch-source-img', async (event, arg) => {
     case 'gog':
       event.returnValue = path.join(process.env['APPDATA'], 'Achievement Watcher', 'Source', 'gog.svg');
       break;
-    case 'playstation':
+    case 'RPCS3 Emulator':
       event.returnValue = path.join(process.env['APPDATA'], 'Achievement Watcher', 'Source', 'playstation.svg');
       break;
     case 'steam':
