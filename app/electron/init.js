@@ -44,7 +44,7 @@ function clientLogOn() {
 
 const manifest = require('../package.json');
 const userData = app.getPath('userData');
-let currentlyscraping = false;
+let currentlyscraping = { steamcommunity: false, steamhunters: false };
 let settingsJS = null;
 let configJS = null;
 let achievementsJS = null;
@@ -73,7 +73,8 @@ let debug = new (require('@xan105/log'))({
 
 async function getUserAchievements(appid) {
   let steamid = 76561198152618007;
-
+  //TODO: this can be used to get descriptions in other languagues
+  // append to url -> ?l=<languague> - like english/french/etc
   const url = `https://steamcommunity.com/profiles/${steamid}`;
   const res = await fetch(url, { redirect: 'manual', headers: { userAgent: 'node-fecth' } });
   const l = res.headers.get('location');
@@ -92,10 +93,265 @@ async function getUserAchievements(appid) {
   }));
 }
 
+const steamUserIds = [
+  '76561198028121353',
+  '76561197979911851',
+  '76561198017975643',
+  '76561197993544755',
+  '76561198355953202',
+  '76561198001237877',
+  '76561198237402290',
+  '76561198152618007',
+  '76561198355625888',
+  '76561198213148949',
+  '76561197969050296',
+  '76561198217186687',
+  '76561198037867621',
+  '76561198094227663',
+  '76561198019712127',
+  '76561197963550511',
+  '76561198134044398',
+  '76561198001678750',
+  '76561197973009892',
+  '76561198044596404',
+  '76561197976597747',
+  '76561197969810632',
+  '76561198095049646',
+  '76561198085065107',
+  '76561198864213876',
+  '76561197962473290',
+  '76561198388522904',
+  '76561198033715344',
+  '76561197995070100',
+  '76561198313790296',
+  '76561198063574735',
+  '76561197996432822',
+  '76561197976968076',
+  '76561198281128349',
+  '76561198154462478',
+  '76561198027233260',
+  '76561198842864763',
+  '76561198010615256',
+  '76561198035900006',
+  '76561198122859224',
+  '76561198235911884',
+  '76561198027214426',
+  '76561197970825215',
+  '76561197968410781',
+  '76561198104323854',
+  '76561198001221571',
+  '76561198256917957',
+  '76561198008181611',
+  '76561198407953371',
+  '76561198062901118',
+  '76561197979667190',
+  '76561197974742349',
+  '76561198077213101',
+  '76561198121398682',
+  '76561198019009765',
+  '76561198119667710',
+  '76561197990233857',
+  '76561199130977924',
+  '76561198096081579',
+  '76561198139084236',
+  '76561197971011821',
+  '76561198063728345',
+  '76561198082995144',
+  '76561197963534359',
+  '76561198118726910',
+  '76561198097945516',
+  '76561198124872187',
+  '76561198077248235',
+  '76561198326510209',
+  '76561198109083829',
+  '76561198808371265',
+  '76561198048373585',
+  '76561198005337430',
+  '76561198045455280',
+  '76561197981111953',
+  '76561197992133229',
+  '76561198152760885',
+  '76561198037809069',
+  '76561198382166453',
+  '76561198093753361',
+  '76561198396723427',
+  '76561199168919006',
+  '76561198006391846',
+  '76561198040421250',
+  '76561197994616562',
+  '76561198017902347',
+  '76561198044387084',
+  '76561198172367910',
+  '76561199353305847',
+  '76561198121336040',
+  '76561197972951657',
+  '76561198251835488',
+  '76561198102767019',
+  '76561198021180815',
+  '76561197976796589',
+  '76561197992548975',
+  '76561198367471798',
+  '76561197965978376',
+  '76561197993312863',
+  '76561198128158703',
+  '76561198015685843',
+  '76561198047438206',
+  '76561197971026489',
+  '76561198252374474',
+  '76561198061393233',
+  '76561199173688191',
+  '76561198008797636',
+  '76561197995008105',
+  '76561197984235967',
+  '76561198417144062',
+  '76561197978640923',
+  '76561198219343843',
+  '76561197982718230',
+  '76561198031837797',
+  '76561198039492467',
+  '76561198020125851',
+  '76561198192399786',
+  '76561198028011423',
+  '76561198318111105',
+  '76561198155124847',
+  '76561198168877244',
+  '76561198105279930',
+  '76561197988664525',
+  '76561198996604130',
+  '76561197969148931',
+  '76561198035552258',
+  '76561198015992850',
+  '76561198050474710',
+  '76561198029503957',
+  '76561198026221141',
+  '76561198025653291',
+  '76561198034213886',
+  '76561198096632451',
+  '76561197972378106',
+  '76561197997477460',
+  '76561198054210948',
+  '76561198111433283',
+  '76561198004332929',
+  '76561198045540632',
+  '76561198043532513',
+  '76561199080934614',
+  '76561197970246998',
+  '76561197986240493',
+  '76561198029532782',
+  '76561198018254158',
+  '76561197973230221',
+  '76561198020746864',
+  '76561198158932704',
+  '76561198086250077',
+  '76561198269242105',
+  '76561198294806446',
+  '76561198031164839',
+  '76561198019555404',
+  '76561198048151962',
+  '76561198003041763',
+  '76561198025391492',
+  '76561197962630138',
+  '76561198072936438',
+  '76561198120120943',
+  '76561197984010356',
+  '76561198042965266',
+  '76561198046642155',
+  '76561198015856631',
+  '76561198124865933',
+  '76561198042781427',
+  '76561198443388781',
+  '76561198426000196',
+  '76561198051725954',
+  '76561197992105918',
+  '76561198172925593',
+  '76561198071709714',
+  '76561197981228012',
+  '76561197981027062',
+  '76561198122276418',
+  '76561198019841907',
+  '76561197985091630',
+  '76561199492215670',
+  '76561198106206019',
+  '76561198090111762',
+  '76561198104561325',
+  '76561197991699268',
+  '76561198072361453',
+  '76561198027066612',
+  '76561198032614383',
+  '76561198844130640',
+  '76561198106145311',
+  '76561198079227501',
+  '76561198093579202',
+  '76561198315929726',
+  '76561198171791210',
+  '76561198264362271',
+  '76561198846208086',
+  '76561197991613008',
+  '76561198026306582',
+  '76561197973701057',
+  '76561198028428529',
+  '76561198427572372',
+  '76561197983517848',
+  '76561198085238363',
+  '76561198070220549',
+  '76561198101049562',
+  '76561197969365800',
+  '76561198413266831',
+  '76561198015514779',
+  '76561198811114019',
+  '76561198165450871',
+  '76561197994575642',
+  '76561198034906703',
+  '76561198119915053',
+  '76561198079896896',
+  '76561198008549198',
+  '76561197988052802',
+  '76561198004532679',
+  '76561198002535276',
+  '76561197970545939',
+  '76561197977920776',
+  '76561198007200913',
+  '76561197984605215',
+  '76561198831075066',
+  '76561197970970678',
+  '76561197982273259',
+  '76561197970307937',
+  '76561198413088851',
+  '76561197970360549',
+  '76561198051740093',
+  '76561197966617426',
+  '76561198356842617',
+  '76561198025111129',
+  '76561197996825541',
+  '76561197967716198',
+  '76561197975329196',
+  '76561197998058239',
+  '76561198027668357',
+  '76561197962850521',
+  '76561198258304011',
+  '76561198098314980',
+  '76561198127957838',
+  '76561198060520130',
+  '76561198035612474',
+  '76561198318547224',
+  '76561198020810038',
+  '76561198080773680',
+  '76561198033967307',
+  '76561198034503074',
+  '76561198150467988',
+  '76561197994153029',
+  '76561198026278913',
+  '76561198217979953',
+  '76561197988445370',
+  '76561198083977059',
+];
+
 async function getSteamData(request) {
   const appid = request.appid;
   const type = request.type;
-  const user = request.user;
+  let user = request.user;
+  let userid;
+  const lang = request.lang || 'english';
   try {
     if (type === 'user') {
       const url = `https://steamcommunity.com/profiles/${user}/stats/${appid}/?xml=1`;
@@ -116,11 +372,57 @@ async function getSteamData(request) {
         };
       });
     }
+    if (type === 'steamcommunity') {
+      let info = { appid };
+      const url = `https://steamcommunity.com/stats/${appid}/achievements?l=${lang.api}`; //this doesnt give hidden descriptions
+      await scrapeWithPuppeteer(info, { steamcommunity: true, url: url });
+      currentlyscraping.steamcommunity = false;
+      if (info.achievements.every((a) => a.description)) {
+        return info;
+      }
+
+      let validXml = false;
+      let xml;
+
+      //instead of looping steamuserids,
+      //lets get users from steamhunters and try those
+
+      await scrapeWithPuppeteer(info, { userlist: true, steamhunters: true, appid });
+      currentlyscraping.steamhunters = false;
+      let u = info.users.map((user) => user.steamId);
+
+      for (let id of u) {
+        userid = id;
+        const url = `https://steamcommunity.com/profiles/${userid}/stats/${appid}/?xml=1`; // this for all data
+        const res = await fetch(url);
+        xml = await res.text();
+        validXml = !(xml.startsWith('<!DOCTYPE html') || xml.includes('<html'));
+        if (!validXml) continue;
+
+        const parser = new XMLParser({ ignoreAttributes: false, allowBooleanAttributes: true, cdataPropName: '__cdata' });
+        const data = parser.parse(xml);
+        const achievements = data?.playerstats?.achievements?.achievement || [];
+        const list = achievements.map((a) => {
+          const unlocked = a['@_closed'] === '1';
+          const name = a.name.__cdata;
+          const description = a.description.__cdata;
+          return { name, description, unlocked };
+        });
+        const allgood = list.every((a) => a.description);
+        if (!allgood) continue;
+        const url2 = `https://steamcommunity.com/profiles/${userid}/stats/${appid}?l=${lang.api}`; // this for name and description, match them via icon hash
+        await scrapeWithPuppeteer(info, { steamcommunity: true, url: url2 });
+        currentlyscraping.steamcommunity = false;
+        return info;
+      }
+      // TODO: fallback to steamuserids if noone on steamhunters has 100% the game
+      return info;
+    }
 
     if (type === 'data') {
       let info = { appid };
       await scrapeWithPuppeteer(info, { steamhunters: true });
-      currentlyscraping = false;
+      currentlyscraping.steamhunters = false;
       while (!info.achievements) {
         await delay(500);
       }
@@ -129,7 +431,7 @@ async function getSteamData(request) {
     if (type === 'steamhunters') {
       let info = { appid };
       await scrapeWithPuppeteer(info, { steamhunters: true });
-      currentlyscraping = false;
+      currentlyscraping.steamhunters = false;
       return info;
     }
     await clientLogOn();
@@ -145,21 +447,35 @@ async function getSteamData(request) {
         return appInfo?.common?.name;
 
       case 'header':
-        return appInfo.common.header_image.english || appInfo.common.library_assets_full?.library_header?.image?.english;
+        return (
+          appInfo.common.header_image?.[lang.api] ||
+          appInfo.common.library_assets_full?.library_header?.image[lang.api] ||
+          appInfo.common.header_image.english ||
+          appInfo.common.library_assets_full?.library_header?.image?.english
+        );
       case 'icon':
         return appInfo.common.icon;
       case 'portrait':
-        return appInfo.common.library_assets_full?.library_capsule?.image?.english;
+        return (
+          appInfo.common.library_assets_full?.library_capsule?.image[lang] || appInfo.common.library_assets_full?.library_capsule?.image?.english
+        );
       default:
       case 'common':
         return {
           name: appInfo.common.name,
           isGame: appInfo?.common?.type?.toLowerCase() === 'game',
+          translated: appInfo?.common?.languages?.[lang.api] || false,
           icon: appInfo.common.icon,
           header:
-            appInfo.common.header_image?.english || appInfo.common.library_assets_full?.library_header?.image?.english || storeData.header_image,
-          portrait: appInfo.common.library_assets_full?.library_capsule?.image?.english,
-          background: storeData.background.replace(/(\?|&)t=\d+$/, ''),
+            appInfo.common.header_image?.[lang.api] ||
+            appInfo.common.library_assets_full?.library_header?.image?.[lang.api] ||
+            appInfo.common.header_image?.english ||
+            appInfo.common.library_assets_full?.library_header?.image?.english ||
+            storeData?.header_image,
+          portrait:
+            appInfo.common.library_assets_full?.library_capsule?.image?.[lang.api] ||
+            appInfo.common.library_assets_full?.library_capsule?.image?.english,
+          background: storeData?.background.replace(/(\?|&)t=\d+$/, ''),
         };
     }
 
@@ -171,13 +487,14 @@ async function getSteamData(request) {
 }
 
 async function closePuppeteer() {
-  currentlyscraping = false;
+  currentlyscraping.steamcommunity = false;
+  currentlyscraping.steamhunters = false;
   if (!puppeteerWindow) puppeteerWindow = {};
-  if (puppeteerWindow.page) await puppeteerWindow.page.close();
   if (puppeteerWindow.context) await puppeteerWindow.context.close();
   if (puppeteerWindow.browser) await puppeteerWindow.browser.close();
   puppeteerWindow.browser = undefined;
-  puppeteerWindow.page = undefined;
+  puppeteerWindow.pagesh = undefined;
+  puppeteerWindow.pagesc = undefined;
   puppeteerWindow.context = undefined;
 }
 
@@ -221,14 +538,19 @@ async function getCachedData(info) {
   }
 }
 
-ipcMain.on('capture-screen', async (event, { image, filename }) => {
+ipcMain.on('capture-screen', async (event, { image, game, name }) => {
+  function sanitizeName(name) {
+    // Remove invalid characters
+    name = name.replace(/[<>:"/\\|?*\x00-\x1F]/g, '');
+    // Remove trailing spaces or dots
+    name = name.replace(/[. ]+$/, '');
+    // Trim just in case
+    return name.trim();
+  }
   if (!configJS.souvenir_screenshot.screenshot || manifest.config.debug) return;
   const buffer = Buffer.from(image, 'base64');
-  const savePath = path.join(
+  const savePath = path.join(configJS.souvenir_screenshot.custom_dir || app.getPath('pictures'), sanitizeName(game), sanitizeName(name) + '.png');
     configJS.souvenir_screenshot.custom_dir || app.getPath('pictures'),
-    notificationWindow.info.game.name,
-    notificationWindow.info.description + '.png'
-  );
   fs.mkdirSync(path.dirname(savePath), { recursive: true });
   if (!configJS.souvenir_screenshot.overwrite_image && fs.existsSync(savePath)) return;
   fs.writeFileSync(savePath, buffer);
@@ -241,7 +563,7 @@ ipcMain.on('close-puppeteer', async (event, arg) => {
 
 ipcMain.on('get-steam-data', async (event, arg) => {
   const appid = +arg.appid;
-  event.returnValue = await getSteamData({ appid, type: arg.type, user: arg.user });
+  event.returnValue = await getSteamData({ appid, type: arg.type, user: arg.user, lang: arg.lang });
 });
 
 ipcMain.on('get-steam-appid-from-title', async (event, arg) => {
@@ -431,23 +753,23 @@ async function ensureChromium() {
   return info;
 }
 
-async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
-  if (alternate && alternate.steamhunters) while (currentlyscraping) delay(100);
-  currentlyscraping = true;
-  try {
-    const installedChromePath = ChromeLauncher.Launcher.getInstallations()[0];
-    const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : (await ensureChromium()).executablePath;
-    const url = `https://steamhunters.com/apps/${info.appid}/achievements`;
-    if (!puppeteerWindow.browser)
-      puppeteerWindow.browser = await puppeteer.launch({
-        headless: alternate && alternate.steamhunters ? 'new' : false,
-        executablePath: chromiumPath,
-        args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-extensions'],
-      });
-    if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
-    if (!puppeteerWindow.page) {
-      puppeteerWindow.page = await puppeteerWindow.context.newPage();
-      const page = puppeteerWindow.page;
+async function startPuppeteer(headless, strip) {
+  const installedChromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' || ChromeLauncher.Launcher.getInstallations()[0];
+  const chromiumPath = fs.existsSync(installedChromePath) ? installedChromePath : (await ensureChromium()).executablePath;
+  if (!puppeteerWindow.browser)
+    puppeteerWindow.browser = await puppeteer.launch({
+      headless: headless ? 'new' : false,
+      executablePath: chromiumPath,
+      args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-extensions'],
+    });
+  if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
+  if (!puppeteerWindow.pagesc) {
+    puppeteerWindow.pagesc = await puppeteerWindow.context.newPage();
+  }
+  if (!puppeteerWindow.pagesh) {
+    puppeteerWindow.pagesh = await puppeteerWindow.context.newPage();
+    if (strip) {
+      const page = puppeteerWindow.pagesh;
       await page.setRequestInterception(true);
       page.on('request', (req) => {
         const type = req.resourceType();
@@ -458,11 +780,49 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
         }
       });
     }
+  }
+}
+
+async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
+  if (alternate?.steamhunters || alternate?.steamcommunity)
+    while ((currentlyscraping.steamhunters && alternate?.steamhunters) || (currentlyscraping.steamcommunity && alternate?.steamcommunity)) delay(100);
+  currentlyscraping.steamcommunity = alternate?.steamcommunity ? true : currentlyscraping.steamcommunity;
+  currentlyscraping.steamhunters = alternate?.steamhunters ? true : currentlyscraping.steamhunters;
+  await startPuppeteer(alternate, alternate?.steamhunters);
+  try {
     if (alternate) {
       if (alternate.steamhunters) {
+        if (alternate.userlist) {
+          const url = `https://steamhunters.com/apps/${info.appid}/users?sort=completionstate`;
+          const page = puppeteerWindow.pagesh;
+          try {
+            await page.goto(url);
+            await page.waitForFunction(() => {
+              return Array.from(document.querySelectorAll('script')).some((s) => s.textContent.includes('var sh'));
+            });
+            await page.evaluate(() => {
+              const scripts = Array.from(document.querySelectorAll('script'));
+              const target = scripts.find((s) => s.textContent.includes('var sh'));
+              eval(target.textContent);
+            });
+            const users = (await page.evaluate(() => sh.model.listData.pagedList.items)) || [];
+
+            const results = [];
+            users.forEach((item) => {
+              results.push({
+                id: item.steamId,
+                isPublic: item.privacyState === 0,
+              });
+            });
+            info.users = users;
+          } catch (e) {
+            console.log(e);
+          }
+          return;
+        }
         let start = Date.now();
         const url = `https://steamhunters.com/apps/${info.appid}/achievements?group=&sort=name`;
-        const page = puppeteerWindow.page;
+        const page = puppeteerWindow.pagesh;
         try {
           await page.goto(url);
           await page.waitForFunction(() => {
@@ -492,6 +852,25 @@ async function scrapeWithPuppeteer(info = { appid: 269770 }, alternate) {
         } catch (e) {
           console.log(e);
         }
+        return;
+      }
+
+      if (alternate.steamcommunity) {
+        const page = puppeteerWindow.pagesc;
+        try {
+          await page.goto(alternate.url, { waitUntil: 'domcontentloaded' });
+        } catch (e) {
+          console.log(e);
+        }
+        const achs = await page.evaluate(() => {
+          return Array.from(document.querySelectorAll('.achieveRow')).map((row) => {
+            const img = row.querySelector('.achieveImgHolder img')?.src.split('/').pop().split('.jpg')[0] || null;
+            const title = row.querySelector('.achieveTxt h3')?.innerText.trim() || null;
+            const description = row.querySelector('.achieveTxt h5')?.innerText.trim() || null;
+            return { img, title, description };
+          });
+        });
+        info.achievements = achs;
         return;
       }
 
@@ -597,10 +976,9 @@ async function searchForGameName(info = { appid: '' }) {
   let locale = 'en-US'; // use AW's languague in the future? does it even make a difference in this context?
   let startIndex = 0;
   let matchResult;
+  await startPuppeteer(true, false);
 
   async function scrapePage(startIndex) {
-    if (!puppeteerWindow.browser) puppeteerWindow.browser = await puppeteer.launch({ headless: false, executablePath: puppeteer.executablePath() });
-    if (!puppeteerWindow.context) puppeteerWindow.context = await puppeteerWindow.browser.createIncognitoBrowserContext();
     const page = await puppeteerWindow.context.newPage();
 
     const url = `https://store.epicgames.com/pt/browse?sortBy=releaseDate&sortDir=DESC&tag=Windows&priceTier=tier3&category=Game&count=40&start=${
@@ -770,7 +1148,7 @@ function createMainWindow() {
   } catch {
     delete options.icon;
   }
-
+  //getSteamData({ appid: 2321470, type: 'user' });
   MainWin = new BrowserWindow(options);
 
   //Frameless
@@ -995,6 +1373,7 @@ async function createNotificationWindow(info) {
   await getCachedData(info);
   closePuppeteer();
   const message = {
+    name: info.game.name,
     displayName: info.a.displayName || '',
     description: info.a.description || '',
     icon: pathToFileURL(await fetchIcon(info.a.icon, info.appid)).href,
@@ -1090,7 +1469,7 @@ async function createNotificationWindow(info) {
   notificationWindow.setAlwaysOnTop(true, 'screen-saver');
   notificationWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   notificationWindow.setFullScreenable(false);
-  notificationWindow.setFocusable(true);
+  notificationWindow.setFocusable(false);
   notificationWindow.setIgnoreMouseEvents(true, { forward: true });
   notificationWindow.info = info;
 
@@ -1107,6 +1486,7 @@ async function createNotificationWindow(info) {
     notificationWindow.webContents.send('set-window-scale', scale);
     notificationWindow.webContents.send('set-animation-scale', (configJS.overlay?.duration ?? 1) * 0.01);
     notificationWindow.webContents.send('show-notification', {
+      game: message.name,
       displayName: message.displayName,
       description: message.description,
       iconPath: message.icon,
@@ -1170,9 +1550,11 @@ async function createPlaytimeWindow(info) {
   playtimeWindow.setFullScreenable(false);
   playtimeWindow.setFocusable(false);
 
+  const desc = info.description;
   await startEngines();
   await getCachedData(info);
   closePuppeteer();
+  info.description = desc;
   info.headerUrl = pathToFileURL(await fetchIcon(info.game.img.header, info.appid)).href;
   playtimeWindow.once('ready-to-show', () => {
     if (playtimeWindow && !playtimeWindow.isDestroyed()) {

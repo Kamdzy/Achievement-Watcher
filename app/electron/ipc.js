@@ -10,10 +10,6 @@ const settingsJS = require(path.join(__dirname, '../settings.js'));
 settingsJS.setUserDataPath(app.getPath('userData'));
 const { getSteamUsersList } = require(path.join(__dirname, '../parser/steam.js'));
 
-function notifyError(message) {
-  console.error(message);
-}
-
 // Handler for renderer process
 ipcMain.handle('get-app-name', () => {
   return app.getName();
@@ -45,15 +41,16 @@ ipcMain.handle('fetch-icon', async (event, url, appid) => {
   return pathToFileURL(p).href;
 });
 
-ipcMain.on('close-notification-window', (event) => {
+ipcMain.on('close-notification-window', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-
-  if (win && !win.isDestroyed()) {
-    const wc = win.webContents;
-    wc.forcefullyCrashRenderer();
-    win.destroy();
-    win.emit('closed');
+  if (!win || win.isDestroyed()) return;
+  win.setIgnoreMouseEvents(false);
+  win.setAlwaysOnTop(false);
+  if (win.isVisible()) {
+    win.hide();
+    await new Promise((r) => setTimeout(r, 50));
   }
+  win.close();
 });
 
 module.exports.window = () => {

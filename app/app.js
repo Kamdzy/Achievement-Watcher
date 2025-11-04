@@ -481,7 +481,7 @@ var app = {
                 label: `Open game's .db cache folder`,
                 click() {
                   remote.shell.showItemInFolder(
-                    path.join(process.env['APPDATA'], 'Achievement Watcher', 'steam_cache', 'schema', 'english', `${appid}.db`)
+                    path.join(process.env['APPDATA'], 'Achievement Watcher', 'steam_cache', 'schema', `${app.config.achievement.lang}`, `${appid}.db`)
                   );
                 },
               })

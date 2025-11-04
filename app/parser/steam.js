@@ -22,6 +22,7 @@ const SteamUser = require('steam-user');
 const client = new SteamUser();
 client.logOn({ anonymous: true });
 
+let listReady = true;
 let steamUsersList;
 let appidListMap = new Map();
 let debug;
@@ -567,9 +568,26 @@ function getSteamDataFromRemoteSRV(appID, lang) {
 }
 
 async function getSteamDataFromSRV(appID, lang) {
+  const langObj = steamLanguages.find((language) => language.api === lang);
   const { ipcRenderer } = require('electron');
-  const result = ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'common' });
+  const result = ipcRenderer.sendSync('get-steam-data', {
+    appid: appID,
+    type: 'common',
+    lang: langObj,
+  });
   const achievements = result.isGame ? ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'steamhunters' }).achievements : [];
+  const translatedAchievements =
+    !result.isGame || lang == 'english' || !result.translated
+      ? []
+      : ipcRenderer.sendSync('get-steam-data', { appid: appID, type: 'steamcommunity', lang: langObj }).achievements;
+
+  for (let ach of translatedAchievements) {
+    let match = achievements.find((a) => a.icon === ach.img || a.icongray === ach.img);
+    if (match) {
+      match.description = ach.description;
+      match.displayName = ach.title;
+    }
+  }
 
   return {
     name: result.name,
@@ -693,7 +711,9 @@ async function findInAppList(appID) {
   const cache = path.join(cacheRoot, 'steam_cache/schema');
   const filepath = path.join(cache, 'appList.json');
 
+  while (!listReady) await new Promise((r) => setTimeout(r, 50));
   if (appidListMap.size === 0) {
+    listReady = false;
     let list;
     if (fs.existsSync(filepath))
       if (Date.now() - fs.statSync(filepath).mtimeMS < 60 * 60 * 1000 * 24 * 3) {
@@ -708,6 +728,7 @@ async function findInAppList(appID) {
     }
     appidListMap = new Map(list.map((a) => [a.appid, a]));
   }
+  listReady = true;
 
   const app = appidListMap.get(appID);
   if (app) return app.name;

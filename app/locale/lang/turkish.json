@@ -1,0 +1,236 @@
+{
+  "achievements": "Başarımlar",
+  "perfectGame": "Kusursuz Oyunlar",
+  "completionRate": "Ort. Oyun Tamamlama Oranı",
+  "emptyList": "Oyun bulunamadı",
+  "loading": "Yükleniyor",
+  "unlocked": "Kilidi açıldı",
+  "locked": "Kilitli",
+  "globalStat": "oyuncuların % 'si buna sahip",
+  "hiddenRemain": "kalan gizli başarımlar",
+  "revealedOnceUnlocked": "Her bir başarımın açıklamaları, kilidi açıldığında gösterilecektir.",
+  "noneUnlocked": "Henüz hiçbir başarımın kilidi açılmadı",
+  "play": "Oynamaya başla !",
+  "scrollUp": "Yukarı kaydır",
+  "allGamesBackButton": "Bütün oyunlar",
+  "removeFromList": "Listeden kaldır",
+  "buildIconPrefetchCache": "Bildirim simgesi önbelleği oluştur",
+  "settings": {
+    "title": "Ayarlar",
+    "sideMenu": {
+      "general": "Genel ",
+      "overlay": "Arayüz",
+      "notification": "Bildirim",
+      "souvenir": "Hatıra",
+      "folder": "Klasörler",
+      "source": "Kaynak",
+      "advanced": "Gelişmiş",
+      "debug": "Hata ayıklama"
+    },
+    "common": {
+      "show": "Göster",
+      "hide": "Gizle",
+      "enable": "Etkin",
+      "disable": "Devre dışı",
+      "cancel": "İptal",
+      "save": "Kaydet",
+      "version": "Versiyon",
+      "edit": "Düzenle"
+    },
+    "overlay": {
+      "position": "Bildirim Pozisyonu",
+      "preset": { "name": "Bildirim Ön Ayarı", "description": "Legacy (eski) sürüm, 'eski' bildirim sistemini kullanır" },
+      "hotkey": {
+        "name": "Arayüz Kısayol Tuşu",
+        "description": "Oyun sırasında, oyunun başarılarını göstermek için bu kısayol tuşuna basabilirsiniz."
+      },
+      "scale": "Bildirim Boyutu",
+      "duration": "Animasyon süresi"
+    },
+    "general": {
+      "language": {
+        "name": "Dil",
+        "description": ["Çeviriye yardımcı olun", "buradan"]
+      },
+      "thumbnail": {
+        "name": "Önizleme görselinin yönü",
+        "value": {
+          "portrait": "Dikey",
+          "landscape": "Yatay"
+        }
+      },
+      "hiddenAch": {
+        "name": "Gizli Başarımlar"
+      },
+      "mergeDuplicates": {
+        "name": "Kopyaları Birleştir"
+      },
+      "timeMerge": {
+        "name": "Zamana göre birleştirme",
+        "description": "Kopyaları birleştirirken hangi zaman değeri tercih edilsin?",
+        "value": {
+          "recent": "En son",
+          "oldest": "En eski"
+        }
+      },
+      "hideZero": {
+        "name": "%0 Başarımlı Oyunları Gizle"
+      }
+    },
+    "notification": {
+      "title": {
+        "common": "Yaygın",
+        "toast": "Kısa süreli açılır bildirim",
+        "transport": "Aktarma",
+        "chromium": "Chromium bildirim sistemi"
+      },
+      "info": {
+        "toast": "Bazı özellikler yalnızca Windows 10 'da mevcuttur"
+      },
+      "option": {
+        "notification": {
+          "name": "Bildirim",
+          "description": "Mümkünse başarı kilidini açtığında bildir"
+        },
+        "rumble": {
+          "name": "Gamepad Titreşimi (XInput)",
+          "description": "Bir başarının kilidini açarken ilk olan kontrolcü titretir"
+        },
+        "notifyOnProgress": {
+          "name": "İlerleme raporu",
+          "description": "Mümkünse başarı ilerlemesini bildirin"
+        },
+        "playtime": {
+          "name": "Oyun süresi takibi",
+          "description": "İzleme başlarken/biterken bildir"
+        },
+        "customToastAudio": {
+          "name": "Bildirim sesi",
+          "description": "Bir bildirim görüntülendiğinde çalınacak sesi belirler",
+          "value": {
+            "systemDefault": "Varsayılan",
+            "muted": "Sessiz"
+          }
+        },
+        "toastSouvenir": {
+          "name": "Hatıra bildirimi",
+          "description": "Bildirimin içinde hatıra ekran görüntüsünü görüntüle",
+          "value": {
+            "top": "Üst",
+            "bottom": "Alt"
+          }
+        },
+        "groupToast": {
+          "name": "Oyuna göre gruplandır",
+          "description": "Eylem Merkezi'nde aynı oyundan bildirimleri görsel olarak grupla"
+        },
+        "useToast": {
+          "name": "Kısa süreli açılır bildirim",
+          "description": "Windows 8 -10 bildirimi"
+        },
+        "useWinRT": {
+          "name": "WinRT API",
+          "description": "Daha hızlı bildirim için PowerShell yerine mümkünse WinRT kullanın"
+        },
+        "useBalloon": {
+          "name": "Balon ipucu",
+          "description": "Kısa süreli açılır bildirimi başarısız olursa balon ipucuna geri dön"
+        },
+        "useWS": {
+          "description": "Başarımı tüm bağlı istemcilere yayınlayın"
+        },
+        "useChromium": {
+          "name": "Chromium bildirim sistemi",
+          "description": "Stilize bildirimleri göstermek için Chromium kullanır."
+        }
+      }
+    },
+    "souvenir": {
+      "title": {
+        "screenshot": "Ekran Görüntüsü",
+        "video": "Video"
+      },
+      "option": {
+        "screenshot": {
+          "name": "Hatıra",
+          "description": "Bir başarımın kilidini açtığınızda ekran görüntüsü alın"
+        },
+        "video": {
+          "name": "Video hatıra",
+          "description": "GPU'nuzun donanım kodlayıcısını kullanarak bir başarının kilidini açtığınızda kısa bir video kaydedin"
+        },
+        "overwrite": {
+          "name": "Varolan dosyanın üzerine yaz"
+        },
+        "custom_dir": {
+          "name": "Konumu kaydet"
+        },
+        "codec": {
+          "name": "Video kodlayıcı",
+          "description": "H.265/HEVC daha performanslı ancak daha az destekleniyor"
+        },
+        "colorDepth": {
+          "name": "Renk derinliği",
+          "description": "10bits yalnızca H.265/HEVC için kullanılabilir"
+        },
+        "duration": {
+          "name": "Süre"
+        },
+        "framerate": {
+          "name": "Kare sayısı"
+        },
+        "cursor": {
+          "name": "Fare imleci"
+        }
+      }
+    },
+    "folder": {
+      "headline": "Başarım dosyalarının konumu:",
+      "default": "Varsayılan Dizin",
+      "custom": "Kullanıcı Dizini",
+      "addInfo": [
+        "AppID içeren bir klasör seçin.",
+        "ALI213, Hoodlum, RPCS3 için lütfen klasör seçin",
+        "ALI213.ini, valve.ini, hlm.ini, ds.ini or RPCS3.exe dosyası bulunur."
+      ],
+      "add": "Klasör ekle"
+    },
+    "source": {
+      "legitSteam": {
+        "name": "Steam Oyunlarını Göster",
+        "description": "Steam yüklenmeli ve Steam profiliniz herkese açık olmalıdır!",
+        "value": {
+          "none": "Boş",
+          "installed": "Yüklendi",
+          "owned": "Sahip Olunan"
+        }
+      },
+      "steamEmu": {
+        "name": "Steam emülatörü"
+      },
+      "greenLuma": {
+        "description": "GreenLuma 2020 ve Reborn"
+      },
+      "rpcs3": {
+        "description": "Playstation 3 Emülatörü"
+      },
+      "lumaPlay": {
+        "description": "Uplay emülatörü"
+      },
+      "importCache": {
+        "name": "Bildirim önbelleğini içe aktar",
+        "description": "İzleyicinin önbelleğini ek bir başarı kaynağı olarak içe aktar"
+      }
+    },
+    "advanced": {
+      "blacklistTitle": "AppID Kara Listesi",
+      "blacklistButton": "Kara listeyi sıfırla",
+      "blacklistInfo": "Kara listeye eklemek için bir oyun kutusuna sağ tıklayın.",
+      "mainSteam": {
+        "title": "Ana Steam Hesabı",
+        "name": "Kullanıcıya göre filtrele",
+        "description": "Yalnızca seçilen hesabın Steam başarılarını göster"
+      }
+    }
+  }
+}

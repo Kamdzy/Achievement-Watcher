@@ -347,10 +347,36 @@ module.exports.makeList = async (option, callbackProgress, onGame = () => {}) =>
     let result = [];
 
     let appidList = await discover(option.achievement_source, option.steam.main);
-
-    if (appidList.length > 0) {
+    let finalList = appidList;
+    if (option.achievement.mergeDuplicate) {
+      const seen = new Map();
+      const duplicates = new Set();
+      const result = [];
+      for (const game of appidList) {
+        if (seen.has(game.appid)) {
+          duplicates.add(game.appid);
+        } else {
+          seen.set(game.appid, game);
+        }
+      }
+      for (const game of appidList) {
+        if (duplicates.has(game.appid)) {
+          if (!result.some((g) => g.appid === game.appid)) {
+            result.push({
+              appid: game.appid,
+              source: game.source,
+            });
+          }
+        } else {
+          result.push(game);
+        }
+      }
+      finalList = result;
+    }
+    if (finalList.length > 0) {
       let count = 0;
-      const promises = appidList.map(async (appid, index) => {
+      const promises = finalList.map(async (appid, index) => {
+        await new Promise((r) => setTimeout(r, 10 * index));
         let startTime, endTime;
         startTime = Date.now();
         debug.log(`[${appid.appid}] loading data...`);
@@ -361,17 +387,13 @@ module.exports.makeList = async (option, callbackProgress, onGame = () => {}) =>
           debug.log(`[${appid.appid}] took ${(endTime - startTime) / 1000} seconds.`);
         }
         if (game && game.achievement && game.achievement.total > 0) {
-          let duplicate = result.find((a) => a.appid == game.appid);
-          if (duplicate && option.achievement.mergeDuplicate) {
-            //TODO: is this even needed?
-          } else {
-            result.push(game);
-            requestAnimationFrame(() => onGame?.(game));
-          }
+          result.push(game);
+          requestAnimationFrame(() => onGame?.(game));
+
           debug.log(`[${game.appid}] ${game.name} took ${(endTime - startTime) / 1000} seconds.`);
         }
         count++;
-        callbackProgress(Math.floor((count / appidList.length) * 100));
+        callbackProgress(Math.floor((count / finalList.length) * 100));
       });
       await Promise.all(promises);
     }

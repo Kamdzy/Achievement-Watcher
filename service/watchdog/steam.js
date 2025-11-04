@@ -20,8 +20,8 @@ module.exports.loadSteamData = async (appID, lang, key, binary = null) => {
     let filePath = path.join(`${cache}`, `${appID}.db`);
     let result;
 
-    if (await fs.existsAndIsYoungerThan(filePath, { timeUnit: 'M', time: 6 })) {
-      result = JSON.parse(await fs.readFile(filePath));
+    if (fs.existsSync(filePath)) {
+      result = JSON.parse(fs.readFileSync(filePath));
     } else {
       if (key) {
         result = await getSteamData(appID, lang, key);
@@ -29,9 +29,8 @@ module.exports.loadSteamData = async (appID, lang, key, binary = null) => {
       } else {
         result = await getSteamDataFromSRV(appID, lang);
       }
-      fs.writeFile(filePath, JSON.stringify(result, null, 2)).catch((err) => {
-        console.log(err);
-      });
+      fs.mkdirSync(filePath, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
     }
 
     return result;
@@ -48,7 +47,7 @@ module.exports.fetchIcon = async (url, appID) => {
 
     let filePath = path.join(cache, filename);
 
-    if (await fs.exists(filePath)) {
+    if (fs.existsSync(filePath)) {
       return filePath;
     } else {
       return (await request.download(url, cache)).path;
@@ -116,7 +115,7 @@ async function findInAppList(appID) {
   const filepath = path.join(cache, 'appList.json');
 
   try {
-    const list = JSON.parse(await fs.readFile(filepath));
+    const list = JSON.parse(fs.readFileSync(filepath));
     const app = list.find((app) => app.appid === appID);
     if (!app) throw 'ERR_NAME_NOT_FOUND';
     return app.name;
@@ -128,7 +127,8 @@ async function findInAppList(appID) {
     let list = data.applist.apps;
     list.sort((a, b) => b.appid - a.appid); //recent first
 
-    await fs.writeFile(filepath, JSON.stringify(list, null, 2));
+    fs.mkdirSync(filepath, { recursive: true });
+    fs.writeFileSync(filepath, JSON.stringify(list, null, 2));
 
     const app = list.find((app) => app.appid === appID);
     if (!app) throw 'ERR_NAME_NOT_FOUND';

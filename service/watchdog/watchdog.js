@@ -1,7 +1,6 @@
 'use strict';
 
 const instance = new (require('single-instance'))('Achievement Watchdog');
-const hotkeys = require('node-hotkeys');
 const os = require('os');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -32,6 +31,7 @@ const { isWinRTAvailable } = require('powertoast');
 const { isFullscreenAppRunning } = require('./queryUserNotificationState.js');
 const { enableObs, startObs, recordGame, setRecordPath, setRecordResolution } = require('./obsHandler.js');
 const userShellFolder = require('./util/userShellFolder.js');
+let hotkeys; // required later to avoid io conflict
 
 const cfg_file = {
   option: path.join(process.env['APPDATA'], 'Achievement Watcher/cfg', 'options.ini'),
@@ -382,44 +382,44 @@ var app = {
                       achievements[i].UnlockTime = previous.UnlockTime;
                   } else if (!achievements[i].Achieved && achievements[i].MaxProgress > 0 && +previous.CurProgress < +achievements[i].CurProgress) {
                     debug.log('Progress update:' + ach.displayName);
-
-                    await notify(
-                      {
-                        appid: game.appid,
-                        gameDisplayName: game.name,
-                        achievementName: ach.name,
-                        achievementDisplayName: ach.displayName,
-                        achievementDescription: ach.description,
-                        icon: ach.icongray,
-                        progress: {
-                          current: achievements[i].CurProgress,
-                          max: achievements[i].MaxProgress,
+                    if (self.options.notification.notifyOnProgress)
+                      await notify(
+                        {
+                          appid: game.appid,
+                          gameDisplayName: game.name,
+                          achievementName: ach.name,
+                          achievementDisplayName: ach.displayName,
+                          achievementDescription: ach.description,
+                          icon: ach.icongray,
+                          progress: {
+                            current: achievements[i].CurProgress,
+                            max: achievements[i].MaxProgress,
+                          },
                         },
-                      },
-                      {
-                        notify: self.options.notification.notify,
-                        transport: {
-                          toast: self.options.notification_transport.toast,
-                          gntp: self.options.notification_transport.gntp,
-                          websocket: self.options.notification_transport.websocket,
-                          chromium: self.options.notification_transport.chromium,
-                        },
-                        toast: {
-                          appid: self.toastID,
-                          winrt: self.options.notification_transport.winRT,
-                          balloonFallback: self.options.notification_transport.balloon,
-                          customAudio: 0,
-                          imageIntegration: self.options.notification_toast.toastSouvenir,
-                          group: self.options.notification_toast.groupToast,
-                        },
-                        prefetch: self.options.notification_advanced.iconPrefetch,
-                        souvenir: {
-                          screenshot: false,
-                          video: 0,
-                        },
-                        rumble: false,
-                      }
-                    );
+                        {
+                          notify: self.options.notification.notify,
+                          transport: {
+                            toast: self.options.notification_transport.toast,
+                            gntp: self.options.notification_transport.gntp,
+                            websocket: self.options.notification_transport.websocket,
+                            chromium: self.options.notification_transport.chromium,
+                          },
+                          toast: {
+                            appid: self.toastID,
+                            winrt: self.options.notification_transport.winRT,
+                            balloonFallback: self.options.notification_transport.balloon,
+                            customAudio: 0,
+                            imageIntegration: self.options.notification_toast.toastSouvenir,
+                            group: self.options.notification_toast.groupToast,
+                          },
+                          prefetch: self.options.notification_advanced.iconPrefetch,
+                          souvenir: {
+                            screenshot: false,
+                            video: 0,
+                          },
+                          rumble: false,
+                        }
+                      );
                   }
                 } catch (err) {
                   if (err === 'ACH_NOT_FOUND_IN_SCHEMA') {
@@ -581,9 +581,11 @@ var app = {
   },
 };
 
-instance
-  .lock()
-  .then(() => {
+(async () => {
+  try {
+    await instance.lock();
+    hotkeys = require('node-hotkeys');
+
     app.start().catch((err) => {
       debug.log(err);
     });
@@ -661,8 +663,8 @@ instance
       .catch((err) => {
         debug.error(err);
       });
-  })
-  .catch((err) => {
+  } catch (err) {
     debug.error(err);
     process.exit();
-  });
+  }
+})();
