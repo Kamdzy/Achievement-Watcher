@@ -259,7 +259,8 @@ module.exports.getAchievementsFromFile = async (filePath) => {
       'stats/achievements.ini',
       'stats.bin',
       'stats/CreamAPI.Achievements.cfg',
-      "SteamEmu/UserStats/achiev.ini"
+      'SteamEmu/UserStats/achiev.ini',
+      'user_stats.ini',
     ];
 
     const filter = ['SteamAchievements', 'Steam64', 'Steam', 'Achievements'];
@@ -317,6 +318,23 @@ module.exports.getAchievementsFromFile = async (filePath) => {
             };
           }
         }
+      }
+    } else if (local.ACHIEVEMENTS) {
+      //TENOKE
+      for (let i in local.ACHIEVEMENTS) {
+        if (!Object.prototype.hasOwnProperty.call(local.ACHIEVEMENTS, i)) continue;
+        const key = i.replace(/^"|"$/g, '');
+        const raw = local.ACHIEVEMENTS[i]; // e.g. "{unlocked=true, time=1712253396}"
+        const unlockedMatch = /unlocked\s*=\s*(true|false)/i.exec(raw);
+        const timeMatch = /time\s*=\s*(\d+)/i.exec(raw);
+
+        const unlocked = unlockedMatch ? unlockedMatch[1].toLowerCase() === 'true' : false;
+        const time = timeMatch ? Number(timeMatch[1]) : 0;
+
+        result[key] = {
+          Achieved: unlocked ? '1' : '0',
+          UnlockTime: time,
+        };
       }
     } else {
       result = omit(local.ACHIEVE_DATA || local, filter);

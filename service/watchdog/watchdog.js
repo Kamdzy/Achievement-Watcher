@@ -1,5 +1,15 @@
 'use strict';
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  debug?.error?.('Uncaught exception:', err); // safe optional chaining if debug isn’t loaded yet
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled promise rejection:', reason);
+  debug?.error?.('Unhandled promise rejection:', reason);
+});
+
 const instance = new (require('single-instance'))('Achievement Watchdog');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -335,6 +345,7 @@ var app = {
 
                       await notify(
                         {
+                          source: game.source,
                           appid: game.appid,
                           gameDisplayName: game.name,
                           achievementName: ach.name,

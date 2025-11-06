@@ -16,7 +16,7 @@ module.exports.setUserDataPath = async (p) => {
   file = path.join(p, 'cfg/userdir.db');
 };
 
-const steam_emu_cfg_file_supported = ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini'];
+const steam_emu_cfg_file_supported = ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini', 'tenoke.ini'];
 
 module.exports.get = async () => {
   try {
@@ -89,7 +89,7 @@ module.exports.scan = async (dir) => {
     let info;
     for (var file of steam_emu_cfg_file_supported) {
       try {
-        info = ini.parse(await ffs.readFile(path.join(dir, file), 'utf8'));
+        info = ini.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
         break;
       } catch (e) {}
     }
@@ -261,6 +261,11 @@ module.exports.scan = async (dir) => {
           });
         }
       }
+    } else if (file === 'tenoke.ini') {
+      result.push({
+        appid: info.TENOKE.id.split('#')[0].trim(),
+        data: { type: 'file', path: path.join(dir, 'SteamData') },
+      });
     }
   } catch (err) {
     /*Do nothing*/
