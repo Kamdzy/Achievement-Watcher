@@ -21,7 +21,7 @@ const files = {
     'SteamEmu/UserStats/achiev.ini',
     'user_stats.ini',
   ],
-  steamEmu: ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini', 'tenoke.ini'],
+  steamEmu: ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini', 'tenoke.ini', 'UniverseLAN.ini'],
 };
 
 module.exports.getFolders = async (userDir_file) => {
@@ -259,6 +259,12 @@ module.exports.getFolders = async (userDir_file) => {
                 dir: path.join(dir.path, 'SteamData'),
                 options: { appid: info.TENOKE.id.split('#')[0].trim(), recursive: false, file: [files.achievement[8]] },
               });
+            } else if (file === files.steamEmu[7]) {
+              //UniverseLAN
+              steamEmu.push({
+                dir: path.join(dir.path, 'UniverseLANData'),
+                options: { appid: info.GameSettings.AppID, recursive: false, file: [files.achievement[6]] },
+              });
             }
           } else {
             steamEmu.push({ dir: dir.path, options: { recursive: true, filter: /([0-9]+)/, file: files.achievement } });
@@ -327,6 +333,23 @@ module.exports.parse = async (filePath) => {
         }
       }
       local = convert;
+    } else if (local.ACHIEVEMENTS) {
+      //TENOKE
+      for (let i in local.ACHIEVEMENTS) {
+        if (!Object.prototype.hasOwnProperty.call(local.ACHIEVEMENTS, i)) continue;
+        const key = i.replace(/^"|"$/g, '');
+        const raw = local.ACHIEVEMENTS[i]; // e.g. "{unlocked=true, time=1712253396}"
+        const unlockedMatch = /unlocked\s*=\s*(true|false)/i.exec(raw);
+        const timeMatch = /time\s*=\s*(\d+)/i.exec(raw);
+
+        const unlocked = unlockedMatch ? unlockedMatch[1].toLowerCase() === 'true' : false;
+        const time = timeMatch ? Number(timeMatch[1]) : 0;
+
+        convert[`${key}`] = {
+          Achieved: unlocked ? '1' : '0',
+          UnlockTime: time,
+        };
+      }
     } else {
       local = omit(local.ACHIEVE_DATA || local, filter);
     }

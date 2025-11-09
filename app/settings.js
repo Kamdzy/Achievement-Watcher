@@ -132,11 +132,11 @@ module.exports.load = () => {
     //Toast
 
     if (
-      options.notification_toast.customToastAudio != 0 &&
-      options.notification_toast.customToastAudio != 1 &&
-      options.notification_toast.customToastAudio != 2
+      options.notification_toast.customToastAudio != '0' &&
+      options.notification_toast.customToastAudio != '1' &&
+      options.notification_toast.customToastAudio != '2'
     ) {
-      options.notification_toast.customToastAudio = 1;
+      options.notification_toast.customToastAudio = '1';
     }
 
     if (
@@ -325,7 +325,7 @@ module.exports.load = () => {
         playtime: false,
       },
       notification_toast: {
-        customToastAudio: 1,
+        customToastAudio: '1',
         toastSouvenir: 0,
         groupToast: false,
       },

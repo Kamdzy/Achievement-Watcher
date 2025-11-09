@@ -9,6 +9,7 @@ const regedit = require('regodit');
 const gntp = require('./notification/transport/gntp.js');
 const settings = require('./settings.js');
 const xinput = require('xinput-ffi');
+const player = require('sound-play');
 
 const cfg_file = path.join(process.env['APPDATA'], 'Achievement Watcher/cfg', 'options.ini');
 
@@ -35,6 +36,14 @@ module.exports.toast = async () => {
       message = 'WinRT';
     }
 
+    let soundFile;
+    if (options.notification_toast.customToastAudio === '2' || options.notification_toast.customToastAudio === '1') {
+      let toastAudio = require(path.join(__dirname, './util/toastAudio.js'));
+      soundFile =
+        options.notification_toast.customToastAudio === '1'
+          ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())
+          : toastAudio.getCustom();
+    }
     let payload = {
       appID: 'Microsoft.XboxApp_8wekyb3d8bbwe!Microsoft.XboxApp',
       uniqueID: 'TOAST_TEST',
@@ -42,8 +51,8 @@ module.exports.toast = async () => {
       message: options.notification.showDesc ? `${message}\nHello World` : `${message}`,
       icon: 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/480/winner.jpg',
       attribution: 'Achievement',
-      silent: options.notification_toast.customToastAudio == 0 ? true : false,
-      audio: options.notification_toast.customToastAudio == 2 ? 'ms-winsoundevent:Notification.Achievement' : null,
+      silent: options.notification_toast.customToastAudio == '0' || soundFile ? true : false,
+      audio: options.notification_toast.customToastAudio == '2' ? 'ms-winsoundevent:Notification.Achievement' : null,
     };
 
     if (options.notification_toast.groupToast) options.group = { id: 'TOAST_TEST_GROUP', title: 'Achievement Watcher' };
@@ -59,6 +68,7 @@ module.exports.toast = async () => {
     }
 
     try {
+      if (soundFile) player.play(soundFile).catch(() => {});
       await toast(payload);
     } catch (err) {
       if (options.notification_transport.balloon) {

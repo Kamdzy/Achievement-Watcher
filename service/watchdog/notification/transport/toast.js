@@ -1,16 +1,26 @@
 'use strict';
 
 const toast = require('powertoast');
+const player = require('sound-play');
+const path = require('path');
 
 module.exports = async (message, options) => {
+  let soundFile;
+  if (options.toast.customAudio === '2' || options.toast.customAudio === '1') {
+    let toastAudio = require(path.join(__dirname, '../../util/toastAudio.js'));
+    soundFile =
+      options.toast.customAudio === '1'
+        ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())
+        : toastAudio.getCustom();
+  }
   let notification = {
     appID: options.toast.appid,
     timeStamp: message.time,
     title: message.achievementDisplayName,
     message: message.achievementDescription,
     icon: message.icon,
-    silent: options.toast.customAudio == 0 ? true : false,
-    audio: options.toast.customAudio == 2 ? 'ms-winsoundevent:Notification.Achievement' : null,
+    silent: options.toast.customAudio == '0' || soundFile ? true : false,
+    audio: options.toast.customAudio == '2' ? 'ms-winsoundevent:Notification.Achievement' : null,
     cropIcon: options.toast.cropIcon,
   };
 
@@ -23,10 +33,10 @@ module.exports = async (message, options) => {
 
   if (options.toast.attribution) notification.attribution = options.toast.attribution;
 
-  if (options.toast.imageIntegration > 0 && message.image) {
-    if (options.toast.imageIntegration == 1) {
+  if (options.toast.imageIntegration != '0' && message.image) {
+    if (options.toast.imageIntegration == '1') {
       notification.headerImg = message.image;
-    } else if (options.toast.imageIntegration == 2) {
+    } else if (options.toast.imageIntegration == '2') {
       notification.footerImg = message.image;
     }
   }
@@ -41,6 +51,6 @@ module.exports = async (message, options) => {
       footer: `${message.progress.current}/${message.progress.max}`,
     };
   }
-
+  if (soundFile) player.play(soundFile).catch(() => {});
   await toast(notification);
 };

@@ -114,20 +114,20 @@ module.exports.load = async (cfg_file) => {
     //Toast
 
     if (
-      options.notification_toast.customToastAudio != 0 &&
-      options.notification_toast.customToastAudio != 1 &&
-      options.notification_toast.customToastAudio != 2
+      options.notification_toast.customToastAudio != '0' &&
+      options.notification_toast.customToastAudio != '1' &&
+      options.notification_toast.customToastAudio != '2'
     ) {
-      options.notification_toast.customToastAudio = 1;
+      options.notification_toast.customToastAudio = '1';
       fixFile = true;
     }
 
     if (
-      options.notification_toast.toastSouvenir != 0 &&
-      options.notification_toast.toastSouvenir != 1 &&
-      options.notification_toast.toastSouvenir != 2
+      options.notification_toast.toastSouvenir != '0' &&
+      options.notification_toast.toastSouvenir != '1' &&
+      options.notification_toast.toastSouvenir != '2'
     ) {
-      options.notification_toast.toastSouvenir = 0;
+      options.notification_toast.toastSouvenir = '0';
       fixFile = true;
     }
 
@@ -318,8 +318,8 @@ module.exports.load = async (cfg_file) => {
         playtime: false,
       },
       notification_toast: {
-        customToastAudio: 1,
-        toastSouvenir: 0,
+        customToastAudio: '1',
+        toastSouvenir: '0',
         groupToast: false,
       },
       notification_transport: {

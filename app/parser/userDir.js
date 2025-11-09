@@ -16,7 +16,16 @@ module.exports.setUserDataPath = async (p) => {
   file = path.join(p, 'cfg/userdir.db');
 };
 
-const steam_emu_cfg_file_supported = ['ALI213.ini', 'valve.ini', 'hlm.ini', 'ds.ini', 'steam_api.ini', 'SteamConfig.ini', 'tenoke.ini'];
+const steam_emu_cfg_file_supported = [
+  'ALI213.ini',
+  'valve.ini',
+  'hlm.ini',
+  'ds.ini',
+  'steam_api.ini',
+  'SteamConfig.ini',
+  'tenoke.ini',
+  'UniverseLAN.ini',
+];
 
 module.exports.get = async () => {
   try {
@@ -266,6 +275,8 @@ module.exports.scan = async (dir) => {
         appid: info.TENOKE.id.split('#')[0].trim(),
         data: { type: 'file', path: path.join(dir, 'SteamData') },
       });
+    } else if (file === 'UniverseLAN.ini') {
+      result.push({ appid: info.GameSettings.AppID, data: { type: 'file', path: path.join(dir, 'UniverseLANData') } });
     }
   } catch (err) {
     /*Do nothing*/

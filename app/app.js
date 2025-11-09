@@ -66,10 +66,12 @@ ipcRenderer.on('watchdog-status', (event, found) => {
 ipcRenderer.on('achievement-unlock', (event, { appid, ach_data }) => {
   const game = gameList.find((game) => game.appid == appid);
   const achievement = game.achievement.list.find((ach) => ach.name == ach_data.name);
-  achievement.Achieved = 1;
-  achievement.UnlockTime = Date.now() / 1000;
-  game.achievement.unlocked += 1;
-  updateGameBox(appid, Math.floor((game.achievement.unlocked / game.achievement.total) * 100));
+  if (!achievement.Achieved) {
+    achievement.Achieved = 1;
+    achievement.UnlockTime = Date.now() / 1000;
+    game.achievement.unlocked += 1;
+    updateGameBox(appid, Math.floor((game.achievement.unlocked / game.achievement.total) * 100));
+  }
   updateGamePage(appid, ach_data);
 });
 
@@ -903,10 +905,7 @@ var app = {
       app.onStart();
 
       remote.app.on('second-instance', (event, argv, cwd) => {
-        app.args = getArgs(argv);
-        if (app.args.appid) {
-          app.onStart();
-        }
+        // ignore, focus on achievement if one is unlocked via toast?
       });
     } catch (err) {
       debug.log(err);

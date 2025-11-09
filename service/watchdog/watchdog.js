@@ -115,7 +115,13 @@ var app = {
       self.cache = [];
 
       debug.log('Achievement Watchdog starting ...');
+      const net = require('net');
+      const PIPE_NAME = '\\\\.\\pipe\\AchievementWatchdogPipe';
 
+      const server = net.createServer(() => {});
+      server.listen(PIPE_NAME, () => {
+        console.log('Watchdog process running, pipe open');
+      });
       processPriority
         .set('high priority')
         .then(() => {
@@ -419,7 +425,7 @@ var app = {
                             appid: self.toastID,
                             winrt: self.options.notification_transport.winRT,
                             balloonFallback: self.options.notification_transport.balloon,
-                            customAudio: 0,
+                            customAudio: '0',
                             imageIntegration: self.options.notification_toast.toastSouvenir,
                             group: self.options.notification_toast.groupToast,
                           },
@@ -653,8 +659,8 @@ var app = {
                   appid: app.toastID,
                   winrt: app.options.notification_transport.winRT,
                   balloonFallback: app.options.notification_transport.balloon,
-                  customAudio: 0,
-                  imageIntegration: 1,
+                  customAudio: '0',
+                  imageIntegration: '1',
                   group: app.options.notification_toast.groupToast,
                   cropIcon: true,
                   attribution: 'Achievement Watcher',

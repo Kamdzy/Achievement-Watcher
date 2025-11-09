@@ -32,8 +32,8 @@ module.exports = async (message, option = {}) => {
         appid: option.toast.appid,
         winrt: option.toast.winrt != null ? option.toast.winrt : true,
         balloonFallback: option.toast.balloonFallback || false,
-        customAudio: option.toast.customAudio >= 0 && option.toast.customAudio <= 2 ? option.toast.customAudio : 1,
-        imageIntegration: option.toast.imageIntegration >= 0 && option.toast.imageIntegration <= 2 ? option.toast.imageIntegration : 0,
+        customAudio: option.toast.customAudio || '1',
+        imageIntegration: option.toast.imageIntegration || '0',
         group: option.toast.group || false,
         cropIcon: option.toast.cropIcon || false,
         attribution: option.toast.attribution || null,
@@ -68,20 +68,13 @@ module.exports = async (message, option = {}) => {
         broadcast(notification);
       }
 
-      if (options.prefetch) {
-        debug.log(`Prefetching...`);
-        if (message.icon && (message.icon.startsWith('http:') || message.icon.startsWith('https:'))) {
-          message.icon = await fetch(message.icon, message.appid);
-        }
+      debug.log(`Prefetching...`);
+      if (message.icon) {
+        message.icon = await fetch(message.icon, message.appid);
+      }
 
-        if (
-          options.transport.toast &&
-          options.toast.imageIntegration > 0 &&
-          message.image &&
-          (message.image.startsWith('http:') || message.image.startsWith('https:'))
-        ) {
-          message.image = await fetch(message.image, message.appid);
-        }
+      if (options.transport.toast && options.toast.imageIntegration != '0' && message.image) {
+        message.image = await fetch(message.image, message.appid);
       }
 
       if (options.transport.chromium) {
@@ -184,7 +177,7 @@ module.exports = async (message, option = {}) => {
           debug.error(e);
         }
         if (!ssTaken) {
-          if (options.toast.imageIntegration > 0) {
+          if (options.toast.imageIntegration != '0') {
             message.image = await screenshot(filePath, options.souvenir.screenshot_options.overwrite_image);
           } else {
             screenshot(filePath, options.souvenir.screenshot_options.overwrite_image).catch((err) => {
