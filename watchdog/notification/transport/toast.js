@@ -7,7 +7,7 @@ const path = require('path');
 module.exports = async (message, options) => {
   let soundFile;
   if (options.toast.customAudio === '2' || options.toast.customAudio === '1') {
-    let toastAudio = require(path.join(__dirname, '../../util/toastAudio.js'));
+    let toastAudio = require('../../util/toastAudio.js');
     soundFile =
       options.toast.customAudio === '1'
         ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())

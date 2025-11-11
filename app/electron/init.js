@@ -725,10 +725,10 @@ ipcMain.handle('get-achievements', async (event, appid) => {
 ipcMain.handle('start-watchdog', async (event, arg) => {
   event.sender.send('reset-watchdog-status');
   const wd = spawn(
-    path.join(manifest.config.debug ? path.join(__dirname, '../../service/') : path.dirname(process.execPath), 'nw/nw.exe'),
+    path.join(manifest.config.debug ? path.join(__dirname, '../../') : path.dirname(process.execPath), 'nw/nw.exe'),
     ['-config', 'watchdog.json'],
     {
-      cwd: path.join(manifest.config.debug ? path.join(__dirname, '../../service/') : path.dirname(process.execPath), 'nw/'),
+      cwd: path.join(manifest.config.debug ? path.join(__dirname, '../../') : path.dirname(process.execPath), 'nw/'),
       detached: true,
       stdio: 'ignore',
       shell: false,
@@ -1776,7 +1776,7 @@ function checkResources() {
 
   app.setLoginItemSettings({
     openAtLogin: true,
-    path: path.join(manifest.config.debug ? path.join(__dirname, '../../service/') : path.dirname(process.execPath), 'nw/nw.exe'),
+    path: path.join(manifest.config.debug ? path.join(__dirname, '../../') : path.dirname(process.execPath), 'nw/nw.exe'),
     args: ['-config', 'watchdog.json'],
   });
 }
