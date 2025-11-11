@@ -2,7 +2,7 @@
   "private": true,
   "name": "Achievement-Watcher",
   "description": "A sexy achievement file parser with real-time notification.",
-  "version": "2.0.14",
+  "version": "2.0.18",
   "main": "./electron/init.js",
   "engines": {
     "node": "~14.0.0"
@@ -12,7 +12,7 @@
     "native-rebuild": "call .\\node_modules\\.bin\\electron-rebuild.cmd",
     "clean": "npm prune --production",
     "prepare": "patch-package",
-    "prepare:watchdog": "cd ../service/watchdog && npm prune --production",
+    "prepare:watchdog": "cd ../watchdog && npm prune --production",
     "build": "npm run prepare:watchdog && electron-builder --config electron-builder.yml --publish never"
   },
   "author": "Anthony Beaumont",
