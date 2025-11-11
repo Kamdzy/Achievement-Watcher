@@ -7,7 +7,7 @@ const path = require('path');
 module.exports = async (message, options) => {
   let soundFile;
   if (options.toast.customAudio === '2' || options.toast.customAudio === '1') {
-    let toastAudio = require(path.join(__dirname, '../../util/toastAudio.js'));
+    let toastAudio = require('../../util/toastAudio.js');
     soundFile =
       options.toast.customAudio === '1'
         ? path.join(process.env.SystemRoot || process.env.WINDIR, 'media', toastAudio.getDefault())
@@ -51,6 +51,10 @@ module.exports = async (message, options) => {
       footer: `${message.progress.current}/${message.progress.max}`,
     };
   }
-  if (soundFile) player.play(soundFile).catch(() => {});
+  if (soundFile)
+    player.play(soundFile).catch((e) => {
+      const debug = require('../../util/log.js');
+      debug.log(`Error playing toast sound:  ${e}`);
+    });
   await toast(notification);
 };

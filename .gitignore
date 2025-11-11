@@ -1,12 +1,10 @@
 temp/
-service/watchdog/_wip_
-service/obs
+watchdog/_wip_
+obs
 
 # Node modules
 app/node_modules/
-server/v2/node_modules/
-service/updater/node_modules/
-service/watchdog/node_modules/
+watchdog/node_modules/
 
 # Logs
 logs/

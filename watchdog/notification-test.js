@@ -68,7 +68,11 @@ module.exports.toast = async () => {
     }
 
     try {
-      if (soundFile) player.play(soundFile).catch(() => {});
+      if (soundFile)
+        player.play(soundFile).catch((e) => {
+          const debug = require('./util/log.js');
+          debug.log(`Error playing toast sound:  ${e}`);
+        });
       await toast(payload);
     } catch (err) {
       if (options.notification_transport.balloon) {
