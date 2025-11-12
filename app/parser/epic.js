@@ -5,6 +5,7 @@ const fs = require('fs');
 const glob = require('fast-glob');
 const request = require('request-zero');
 
+let gameList;
 let cacheRoot;
 let debug;
 module.exports.initDebug = ({ isDev, userDataPath }) => {
@@ -49,7 +50,7 @@ module.exports.scan = async (dir) => {
   let data = [];
   let cache = [];
   const { ipcRenderer } = require('electron');
-  const gameList = JSON.parse(await getEpicProductMapping());
+  if (!gameList) gameList = JSON.parse(await getEpicProductMapping());
 
   if (fs.existsSync(cacheFile)) {
     cache = JSON.parse(fs.readFileSync(cacheFile, { encoding: 'utf8' }));
@@ -118,12 +119,16 @@ module.exports.getGameData = async (cfg) => {
   let title;
   let icon;
   try {
-    title = await getGameTitleFromMapping(JSON.parse(await getEpicProductMapping())[cfg.appID]);
+    if (!gameList) gameList = JSON.parse(await getEpicProductMapping());
+    const gameSlug = gameList[cfg.appID];
+    if (!gameSlug) throw !gameSlug; //return result;
+    title = await getGameTitleFromMapping(gameSlug);
   } catch (err) {
     //appid not found on mapping, either a new game or using custom appid
     //lets assume its new and search for it on the epic games store
     title = ipcRenderer.sendSync('get-title-from-epic-id', { appid: cfg.appID }) || 'Unknown game';
   }
+  if (!title) return result;
   let achievements;
   try {
     achievements = await request.getJson(

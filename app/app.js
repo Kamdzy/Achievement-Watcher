@@ -835,22 +835,23 @@ var app = {
   onPlayButtonClick: async function (self) {
     let appid = self.closest('.game-box').data('appid');
     let cfg = await exeList.get(appid);
-    if (cfg.exe === '') {
+    if (!cfg?.exe || cfg.exe === '' || !fs.existsSync(cfg.exe)) {
       let dialog = await remote.dialog.showOpenDialog(remote.getCurrentWindow(), {
         title: 'Choose the game executable',
         buttonLabel: 'Select',
-        defaultPath: cfg.exe,
+        defaultPath: cfg?.exe || '',
         filters: [{ name: 'Executables', extensions: ['exe', 'bat'] }],
         properties: ['openFile', 'showHiddenFiles', 'dontAddToRecent'],
       });
 
       if (dialog.filePaths.length > 0 && dialog.filePaths[0].length > 0) {
         const filePath = dialog.filePaths[0];
+        if (!fs.existsSync(filePath)) return;
         cfg.exe = filePath;
         await exeList.add(cfg);
       }
     }
-
+    if (!cfg.exe || cfg.exe === '' || !fs.existsSync(cfg.exe)) return;
     if (fs.statSync(cfg.exe).isFile()) {
       let game = spawn(
         cfg.exe,

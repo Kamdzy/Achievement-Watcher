@@ -6,61 +6,27 @@ module.exports.scan = async () => {
   try {
     let data = [];
 
-    const keys = {
-      glr: listRegistryAllSubkeys('HKCU', 'SOFTWARE/GLR/AppID'),
-      gl2020: listRegistryAllSubkeys('HKCU', 'SOFTWARE/GL2020/AppID'),
-      gl2024: listRegistryAllSubkeys('HKCU', 'SOFTWARE/GL2024/AppID'),
+    const keyList = {
+      glr: { keyName: 'GLR', name: 'GreenLuma Reborn' },
+      gl2020: { keyName: 'GL2020', name: 'GreenLuma 2020' },
+      gl2024: { keyName: 'GL2024', name: 'GreenLuma 2024' },
+      gl2025: { keyName: 'GL2025', name: 'GreenLuma 2025' },
     };
 
-    if (keys.glr) {
-      for (let key of keys.glr) {
+    for (let k of keyList) {
+      const keys = listRegistryAllSubkeys('HKCU', `SOFTWARE/${k.keyName}/AppID`);
+      if (!keys) continue;
+      for (let key of keys) {
         try {
-          let glr_ach_enable = parseInt(readRegistryInteger('HKCU', `SOFTWARE/GLR/AppID/${key}`, 'SkipStatsAndAchievements'));
-          if (glr_ach_enable === 0) {
+          let gl_ach_enable = parseInt(readRegistryInteger('HKCU', `SOFTWARE/${k.keyName}/AppID/${key}`, 'SkipStatsAndAchievements'));
+          if (gl_ach_enable === 0) {
             data.push({
               appid: key,
-              source: 'GreenLuma Reborn',
+              source: k.name,
               data: {
                 type: 'reg',
                 root: 'HKCU',
-                path: `SOFTWARE/GLR/AppID/${key}/Achievements`,
-              },
-            });
-          }
-        } catch {}
-      }
-    }
-
-    if (keys.gl2020) {
-      for (let key of keys.gl2020) {
-        try {
-          let glr_ach_enable = parseInt(readRegistryInteger('HKCU', `SOFTWARE/GL2020/AppID/${key}`, 'SkipStatsAndAchievements'));
-          if (glr_ach_enable === 0) {
-            data.push({
-              appid: key,
-              source: 'GreenLuma 2020',
-              data: {
-                type: 'reg',
-                root: 'HKCU',
-                path: `SOFTWARE/GL2020/AppID/${key}/Achievements`,
-              },
-            });
-          }
-        } catch {}
-      }
-    }
-    if (keys.gl2020) {
-      for (let key of keys.gl2020) {
-        try {
-          let glr_ach_enable = parseInt(readRegistryInteger('HKCU', `SOFTWARE/GL2024/AppID/${key}`, 'SkipStatsAndAchievements'));
-          if (glr_ach_enable === 0) {
-            data.push({
-              appid: key,
-              source: 'GreenLuma 2024',
-              data: {
-                type: 'reg',
-                root: 'HKCU',
-                path: `SOFTWARE/GL2024/AppID/${key}/Achievements`,
+                path: `SOFTWARE/${k.keyName}/AppID/${key}/Achievements`,
               },
             });
           }

@@ -2,14 +2,15 @@
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
-  debug?.error?.('Uncaught exception:', err); // safe optional chaining if debug isn’t loaded yet
+  debug?.error?.(`Uncaught exception: ${err}`); // safe optional chaining if debug isn’t loaded yet
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled promise rejection:', reason);
-  debug?.error?.('Unhandled promise rejection:', reason);
+  debug?.error?.(`Unhandled promise rejection: ${reason}`);
 });
 
+const debug = require('./util/log.js');
 const instance = new (require('single-instance'))('Achievement Watchdog');
 const os = require('os');
 const { spawn } = require('child_process');
@@ -35,7 +36,6 @@ const steam = require('./steam.js');
 const track = require('./track.js');
 const playtimeMonitor = require('./playtime/monitor.js');
 const notify = require('./notification/toaster.js');
-const debug = require('./util/log.js');
 const { crc32 } = require('crc');
 const { isWinRTAvailable } = require('powertoast');
 const { isFullscreenAppRunning } = require('./queryUserNotificationState.js');

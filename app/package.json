@@ -12,7 +12,7 @@
     "native-rebuild": "call .\\node_modules\\.bin\\electron-rebuild.cmd",
     "clean": "npm prune --production",
     "prepare": "patch-package",
-    "prepare:watchdog": "cd ../service/watchdog && npm prune --production",
+    "prepare:watchdog": "cd ../watchdog && npm prune --production",
     "build": "npm run prepare:watchdog && electron-builder --config electron-builder.yml --publish never"
   },
   "author": "Anthony Beaumont",

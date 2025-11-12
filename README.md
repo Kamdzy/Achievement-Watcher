@@ -1,17 +1,29 @@
-# 🔶 Achievement Watcher Fork
+# 🔷 Achievement Watcher – Kamdzy Fork
 
 > [!IMPORTANT]
-> This fork is not a takeover, not a resurrection of the original project, and not a replacement.
->
-> This is just my personal changes added to it and made public for anyone who might want to use them.
->
-> See [Releases](https://github.com/Kamdzy/Achievement-Watcher/Releases) for full details
+> This is a fork of [darktakayanagi/Achievement-Watcher](https://github.com/darktakayanagi/Achievement-Watcher),
+> which itself is based on the original [Xan105/Achievement-Watcher](https://github.com/xan105/Achievement-Watcher).
+> I’ve made some changes for my personal use, but the project remains open and licensed under [LGPL-3.0](./LICENSE).
+> You’re free to view, fork, or modify this code under the same license terms.
 
 ## Notable Changes
 
+- Steam API key no longer required
 - Play button to run games from within the app
 - video souvenir now captures also the moments before triggering an achievement, possible with OBS Studio (developed by the OBS Project & licensed under the GNU GPL v2. [Source code](https://github.com/obsproject/obs-studio))
 - Chromium Notifications (developed by [@PSerban93](https://github.com/PSerban93))
+- Support for GOG/EPIC/UPLAY games
+- Support for more Steam emus
+
+### **Planed Features**
+
+- Support for RetroAchievements (From Atari 2600 to PlayStation 2, and everything in between.)
+- Support for PS4 and Xbox360
+- Controller UI Navigation
+
+## Features Overview
+
+(WIP - Video here)
 
 <hr />
 <hr />
