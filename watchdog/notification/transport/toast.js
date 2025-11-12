@@ -51,6 +51,10 @@ module.exports = async (message, options) => {
       footer: `${message.progress.current}/${message.progress.max}`,
     };
   }
-  if (soundFile) player.play(soundFile).catch(() => {});
+  if (soundFile)
+    player.play(soundFile).catch((e) => {
+      const debug = require('../../util/log.js');
+      debug.log(`Error playing toast sound:  ${e}`);
+    });
   await toast(notification);
 };
