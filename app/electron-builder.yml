@@ -55,6 +55,9 @@ extraFiles:
   - from: ../nw
     to: ./nw
 
+  - from: ../obs
+    to: ./obs
+
   - from: ../setup/winmedia
     to: resources/userData/Media
 
