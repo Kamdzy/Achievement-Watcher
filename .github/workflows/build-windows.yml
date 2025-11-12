@@ -387,18 +387,15 @@ jobs:
         run: |
           Write-Host "Copying lib/fs-compat.js into package folders..."
           Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\app\fs-compat.js" -Force
-          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\service\watchdog\fs-compat.js" -Force
-          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\server\v2\fs-compat.js" -Force
-          # also provide a CommonJS copy for ESM server modules that import via createRequire
-          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\server\v2\fs-compat.cjs" -Force
+          Copy-Item -Path "${{ github.workspace }}\lib\fs-compat.js" -Destination "${{ github.workspace }}\watchdog\fs-compat.js" -Force
           Write-Host "fs-compat copied"
 
       # 13.6 Regenerate NW manifest file hashes and sizes (watchdog.json)
       - name: Regenerate NW manifest hashes
         shell: pwsh
         run: |
-          Write-Host "Regenerating NW manifest hashes for service/nw/watchdog.json"
-          $manifestPath = Join-Path "${{ github.workspace }}" "service\nw\watchdog.json"
+          Write-Host "Regenerating NW manifest hashes for nw/watchdog.json"
+          $manifestPath = Join-Path "${{ github.workspace }}" "nw\watchdog.json"
           if (-not (Test-Path $manifestPath)) {
             Write-Host "Manifest not found at $manifestPath, skipping NW manifest regeneration"
             exit 0
