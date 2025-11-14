@@ -58,10 +58,10 @@ extraFiles:
   - from: ../obs
     to: ./obs
 
-  - from: ../setup/winmedia
+  - from: ./media
     to: resources/userData/Media
 
-  - from: ../setup/Source
+  - from: ./Source
     to: resources/userData/Source
 
   - from: ./presets

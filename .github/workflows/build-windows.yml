@@ -391,54 +391,54 @@ jobs:
           Write-Host "fs-compat copied"
 
       # 13.6 Regenerate NW manifest file hashes and sizes (watchdog.json)
-      - name: Regenerate NW manifest hashes
-        shell: pwsh
-        run: |
-          Write-Host "Regenerating NW manifest hashes for nw/watchdog.json"
-          $manifestPath = Join-Path "${{ github.workspace }}" "nw\watchdog.json"
-          if (-not (Test-Path $manifestPath)) {
-            Write-Host "Manifest not found at $manifestPath, skipping NW manifest regeneration"
-            exit 0
-          }
+      # - name: Regenerate NW manifest hashes
+      #   shell: pwsh
+      #   run: |
+      #     Write-Host "Regenerating NW manifest hashes for nw/watchdog.json"
+      #     $manifestPath = Join-Path "${{ github.workspace }}" "nw\watchdog.json"
+      #     if (-not (Test-Path $manifestPath)) {
+      #       Write-Host "Manifest not found at $manifestPath, skipping NW manifest regeneration"
+      #       exit 0
+      #     }
 
-          $json = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
+      #     $json = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
 
-          # Helper to compute sha256 and size
-          function Get-FileHashAndSize($path) {
-            $bytes = Get-ChildItem -Path $path -ErrorAction Stop | Get-Item
-            $size = $bytes.Length
-            # Use Get-FileHash which is available on Windows runners
-            $hash = Get-FileHash -Algorithm SHA256 -Path $path
-            return @{ size = $size; sum = ($hash.Hash).ToLower() }
-          }
+      #     # Helper to compute sha256 and size
+      #     function Get-FileHashAndSize($path) {
+      #       $bytes = Get-ChildItem -Path $path -ErrorAction Stop | Get-Item
+      #       $size = $bytes.Length
+      #       # Use Get-FileHash which is available on Windows runners
+      #       $hash = Get-FileHash -Algorithm SHA256 -Path $path
+      #       return @{ size = $size; sum = ($hash.Hash).ToLower() }
+      #     }
 
-          $baseDir = Split-Path $manifestPath -Parent
+      #     $baseDir = Split-Path $manifestPath -Parent
 
-          foreach ($entry in $json.fileCheck) {
-            try {
-              $rel = $entry.file
-              # Resolve path: if starts with ../ or ..\, combine with manifest folder; else combine directly
-              $candidate = Resolve-Path -Path (Join-Path $baseDir $rel) -ErrorAction SilentlyContinue
-              if (-not $candidate) {
-                # Try alternative: the file might be relative to workspace root
-                $candidate = Resolve-Path -Path (Join-Path "${{ github.workspace }}" $rel) -ErrorAction SilentlyContinue
-              }
-              if ($candidate) {
-                $info = Get-FileHashAndSize $candidate.Path
-                $entry.size = $info.size
-                $entry.sum = $info.sum
-                Write-Host "Updated: $rel -> size=$($entry.size) sum=$($entry.sum)"
-              } else {
-                Write-Host "Warning: could not resolve path for $($entry.file), leaving as-is"
-              }
-            } catch {
-              Write-Host "Error updating entry $($entry.file): $_"
-            }
-          }
+      #     foreach ($entry in $json.fileCheck) {
+      #       try {
+      #         $rel = $entry.file
+      #         # Resolve path: if starts with ../ or ..\, combine with manifest folder; else combine directly
+      #         $candidate = Resolve-Path -Path (Join-Path $baseDir $rel) -ErrorAction SilentlyContinue
+      #         if (-not $candidate) {
+      #           # Try alternative: the file might be relative to workspace root
+      #           $candidate = Resolve-Path -Path (Join-Path "${{ github.workspace }}" $rel) -ErrorAction SilentlyContinue
+      #         }
+      #         if ($candidate) {
+      #           $info = Get-FileHashAndSize $candidate.Path
+      #           $entry.size = $info.size
+      #           $entry.sum = $info.sum
+      #           Write-Host "Updated: $rel -> size=$($entry.size) sum=$($entry.sum)"
+      #         } else {
+      #           Write-Host "Warning: could not resolve path for $($entry.file), leaving as-is"
+      #         }
+      #       } catch {
+      #         Write-Host "Error updating entry $($entry.file): $_"
+      #       }
+      #     }
 
-          # Write back manifest with indentation
-          $json | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
-          Write-Host "NW manifest regeneration complete"
+      #     # Write back manifest with indentation
+      #     $json | ConvertTo-Json -Depth 10 | Out-File -FilePath $manifestPath -Encoding UTF8
+      #     Write-Host "NW manifest regeneration complete"
 
       # 14. Build Windows installer
       - name: Build installer
